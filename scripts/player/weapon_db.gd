@@ -48,13 +48,14 @@ const DATA := {
 	},
 }
 
-const GEAR_ORDER := ["binoculars", "rangefinder", "call", "boots"]
+const GEAR_ORDER := ["binoculars", "rangefinder", "call", "boots", "dog"]
 
 const GEAR := {
 	"binoculars": {"name": "Binoculars 8x42", "desc": "Hold B to glass distant shores and bogs.", "cost": 800},
 	"rangefinder": {"name": "Laser Rangefinder", "desc": "Shows the distance to whatever you aim at through scope or binoculars.", "cost": 1800},
 	"call": {"name": "Birch-bark Moose Call", "desc": "Press V to call. Bulls within earshot come looking.", "cost": 3200},
 	"boots": {"name": "Felt-sole Boots", "desc": "Softer footsteps: moose hear you from much closer.", "cost": 4500},
+	"dog": {"name": "Grey Elkhound", "desc": "Fant, a grey Norwegian elkhound with a GPS collar. Press G to let him loose: he ranges out into the wind, finds moose by scent or on their tracks, and holds them at bay, barking, while you close in under cover of the noise - or follows a runner until it stands. G again whistles him in. The compass and the map show where he is.", "cost": 7500},
 }
 
 static func get_weapon(id: String) -> Dictionary:

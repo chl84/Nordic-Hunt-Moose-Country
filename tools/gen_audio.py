@@ -743,7 +743,53 @@ def main():
     write("tag", chime([587.33, 880.0], 0.5, 0.11), 0.4)
     write("breath_in", breath(True), 0.35)
     write("breath_out", breath(False), 0.35)
+    main_dog()
     print("done.")
+
+
+# ------------------------------------------------------------------- dog
+def dog_bark(seed, base=560.0, dur=0.2, rough=1.0):
+    """An elkhound's bark: sharp and high, a quick rise and fall of pitch through a
+    small dog's mouth, a breathy burst at the start, a little forest echo."""
+    r = np.random.default_rng(seed)
+    n = secs(dur)
+    u = np.linspace(0, 1, n)
+    f0 = base * (0.86 + 0.32 * np.sin(np.pi * np.minimum(u * 1.6, 1.0)) ** 0.7) * (1.0 - 0.22 * u)
+    f0 *= 1 + 0.03 * rough * lp(r.standard_normal(n), 60) * 3
+    src_n = len(f0)
+    ph = np.cumsum(f0) / SR
+    saw = 2.0 * (ph % 1.0) - 1.0
+    src = saw + 0.35 * np.sign(np.sin(2 * np.pi * ph)) + r.standard_normal(src_n) * 0.28 * rough
+    out = np.zeros(src_n)
+    for f, q, g in ((900, 4, 1.0), (1750, 5, 0.8), (3100, 6, 0.45)):
+        out += peak(src, f, q, 12) * g - src * g
+    x = lp(out + src * 0.2, 5200)
+    env = np.minimum(u / 0.04, 1.0) ** 0.6 * np.exp(-u * 2.4) * (1.0 - u) ** 0.5
+    x *= env
+    burst = bp(r.standard_normal(secs(0.05)), 900, 5000) * np.exp(-tt(secs(0.05)) / 0.012)
+    x = mix(x, burst * 0.5)
+    x = hp(x, 260)
+    wet = convolve(x, outdoor_ir(1.2, 0.3, 40, 0.8, seed + 50)) * 0.12
+    return fade(mix(x, wet), 0.002, 0.2)
+
+
+def dog_whistle():
+    """Two shrill blasts on a dog whistle: come in."""
+    out = np.zeros(secs(1.05))
+    for t0, d, f in ((0.0, 0.32, 2650.0), (0.45, 0.5, 2580.0)):
+        n = secs(d)
+        u = np.linspace(0, 1, n)
+        fr = f * (1 + 0.012 * np.sin(2 * np.pi * 26 * tt(n))) * (1.0 - 0.02 * u)
+        x = tone(fr) + 0.12 * tone(fr * 2) + white(n) * 0.06
+        x *= np.minimum(u / 0.05, 1.0) * np.minimum((1 - u) / 0.12, 1.0)
+        place(out, x, t0)
+    return bp(out, 1500, 7000)
+
+
+def main_dog():
+    for i, (seed, base, dur, rough) in enumerate(((901, 560, 0.2, 1.0), (902, 610, 0.17, 0.9), (903, 520, 0.23, 1.2), (904, 585, 0.19, 1.05))):
+        write(f"dog_bark_{i + 1}", dog_bark(seed, base, dur, rough), 0.9)
+    write("dog_whistle", dog_whistle(), 0.6)
 
 
 if __name__ == "__main__":

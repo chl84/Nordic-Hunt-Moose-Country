@@ -82,6 +82,10 @@ atmo_cloud={
 "type": "vec4",
 "value": Vector4(0, 0, 0, 1)
 }
+atmo_wind={
+"type": "vec4",
+"value": Vector4(0.8, 0.6, 1, 3.3)
+}
 atmo_cloud_tex={
 "type": "sampler2D",
 "value": ""

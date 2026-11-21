@@ -11,6 +11,8 @@ var fx: Effects
 var tracks: Tracks
 var ballistics: Ballistics
 var ambience: Ambience
+var wind: Wind
+var dog: Dog
 var hud: Hud
 var menus: Menus
 var menu_cam: Camera3D
@@ -42,6 +44,7 @@ func _ready() -> void:
 	world.progress.connect(menus.set_progress)
 	await world.build(int(G.args.get("seed", "1905")))
 
+	wind = _add(Wind.new(), "Wind")
 	fx = _add(Effects.new(), "Effects")
 	G.fx = fx
 	tracks = _add(Tracks.new(), "Tracks")
@@ -51,6 +54,7 @@ func _ready() -> void:
 	player = _add(Player.new(), "Player")
 	G.player = player
 	player.message.connect(func(text, seconds): hud.show_message(text, seconds))
+	dog = _add(Dog.new(), "Dog")
 	_add(NatureFx.new(), "NatureFx")
 	ambience = Ambience.new()
 	ambience.name = "Ambience"
@@ -101,6 +105,7 @@ func to_menu() -> void:
 	player.active = false
 	player.visible = false
 	herd.active = false
+	dog.end_hunt()
 	hud.visible = false
 	ambience.music_on = true
 	ambience.in_hunt = false
@@ -118,6 +123,7 @@ func start_hunt() -> void:
 	tracks.clear()
 	herd.populate(int(G.args.get("herdseed", "0")))
 	herd.active = true
+	wind.new_day(int(G.args.get("windseed", "0")))
 	var minutes: int = int(G.args.get("minutes", str(Settings.get_v("hunt_minutes"))))
 	hunt = {
 		"score": 0, "kills": [], "shots": 0, "hits": 0, "longest": 0.0, "best": 0,
@@ -127,6 +133,10 @@ func start_hunt() -> void:
 	player.visible = true
 	player.spawn_at(world.data.spawn_pos, world.data.spawn_yaw)
 	player.active = true
+	if SaveGame.owns_gear("dog"):
+		dog.begin_hunt(world.data.spawn_pos + Basis(Vector3.UP, player.yaw) * Vector3(-0.9, 0, 1.3), player.yaw)
+	else:
+		dog.end_hunt()
 	player.cam.make_current()
 	player.weapon.loaded.clear()
 	if player.weapon.id != SaveGame.equipped:
@@ -173,6 +183,7 @@ func end_hunt(early := false) -> void:
 	player.active = false
 	player.visible = false
 	herd.active = false
+	dog.end_hunt()
 	hud.visible = false
 	ambience.music_on = true
 	ambience.in_hunt = false
@@ -380,6 +391,15 @@ func on_kill(m: Moose) -> void:
 		Engine.time_scale = 0.3
 		AudioServer.playback_speed_scale = 0.8
 		_slow_until = Time.get_ticks_msec() + 1700
+
+## A shot went close past the dog: points off, and the dog comes back to the hunter.
+func dog_endangered() -> void:
+	if mode != Mode.HUNT:
+		return
+	var cost := mini(250, int(hunt["score"]))
+	hunt["score"] = int(hunt["score"]) - cost
+	hud.show_message("That shot went close to %s%s. Never fire with the dog near the line of fire." % [Dog.NAME, (" (-%d)" % cost) if cost > 0 else ""], 6.0)
+	Sfx.ui("ui_error", -4.0)
 
 func tag_moose(m: Moose) -> void:
 	if m.tagged or mode != Mode.HUNT:

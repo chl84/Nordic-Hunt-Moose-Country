@@ -11,12 +11,32 @@ var _respawn_t := 8.0
 var _call_t := 14.0
 var _rng := RandomNumberGenerator.new()
 var active := false
+var _winded_t := 0.0
+var _winded_told := false
 
 func _ready() -> void:
 	G.herd = self
 	_rng.randomize()
 
+## A moose has caught the hunter's scent and is leaving. Say so now and then - that is
+## how one learns to hunt into the wind.
+func winded_by(m: Moose) -> void:
+	if G.player == null or G.hud == null or _winded_t > 0.0:
+		return
+	var d: float = m.global_position.distance_to(G.player.global_position)
+	if d > 280.0:
+		return
+	_winded_t = 30.0
+	var where := "%d m off" % int(round(d / 10.0) * 10.0)
+	if not _winded_told:
+		_winded_told = true
+		G.hud.show_message("A moose %s caught your scent and is leaving. Keep the wind in your face." % where, 6.0)
+	else:
+		G.hud.show_message("A moose %s winded you." % where, 4.0)
+
 func clear() -> void:
+	_winded_t = 0.0
+	_winded_told = false
 	for m in moose:
 		m.queue_free()
 	moose.clear()
@@ -203,6 +223,7 @@ func nearest_alive(p: Vector3) -> Moose:
 func _process(dt: float) -> void:
 	if not active or get_tree().paused:
 		return
+	_winded_t = maxf(_winded_t - dt, 0.0)
 	_respawn_t -= dt
 	if _respawn_t <= 0.0:
 		_respawn_t = 9.0

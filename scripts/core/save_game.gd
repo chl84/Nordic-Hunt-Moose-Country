@@ -102,7 +102,7 @@ func load_game() -> void:
 			wallet = 99999
 		if G.args.has("allgear"):
 			weapons = ["varg308", "finnskog4570", "storm93", "tordenskjold", "nordlys300"]
-			gear = ["binoculars", "rangefinder", "call", "boots"]
+			gear = ["binoculars", "rangefinder", "call", "boots", "dog"]
 		if G.args.has("weapon"):
 			equipped = G.args["weapon"]
 			if not weapons.has(equipped):

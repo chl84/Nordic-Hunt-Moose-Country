@@ -136,6 +136,14 @@ func _step(b: Dictionary, dt: float) -> bool:
 				gp = from.lerp(gp, clampf(k, 0.0, 1.0))
 				gp.y = 0.0
 			hit = {"pos": gp, "normal": Vector3.UP if wet else G.terrain.normal(gp.x, gp.z), "kind": "water" if wet else "dirt"}
+	# the dog: never hit, but a shot close past it is a fault (once per bullet)
+	if G.dog and G.dog.active and not (b["near"] as Dictionary).has("dog"):
+		var end := to if hit.is_empty() else from.lerp(to, clampf(best_t, 0.0, 1.0))
+		if G.dog.near_segment(from, end, 1.0):
+			b["near"]["dog"] = true
+			G.dog.shot_close()
+			if G.main and G.main.has_method("dog_endangered"):
+				G.main.dog_endangered()
 	if hit.is_empty():
 		b["pos"] = to
 		_update_tracer(b, from, to)

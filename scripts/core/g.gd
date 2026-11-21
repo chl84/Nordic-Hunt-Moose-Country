@@ -12,6 +12,8 @@ var fx = null           # Effects
 var hud = null          # Hud
 var tracks = null       # Tracks
 var ballistics = null   # Ballistics
+var wind = null         # Wind
+var dog = null          # Dog (only when the hunter owns one)
 
 ## Dev/test switches set from the command line (after `--`).
 var test_mode := ""

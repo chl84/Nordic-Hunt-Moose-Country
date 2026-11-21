@@ -5,6 +5,8 @@ extends Control
 
 const COMPASS_W := 460.0
 const POINTS := ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+const WIND_COL := Color(0.66, 0.84, 1.0)
+const DOG_COL := Color(1.0, 0.6, 0.22)
 
 var scope: ColorRect
 var scope_mat: ShaderMaterial
@@ -19,6 +21,7 @@ var _banner_title: Label
 var _banner_sub: Label
 var _banner_pts: Label
 var _fps: Label
+var _dog_l: Label
 var _zoom: Label
 var _map: Control
 var _map_tex: TextureRect
@@ -113,6 +116,10 @@ func _ready() -> void:
 	_zoom.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_anchor(_zoom, 0.5, 1, -200, -112, 400, 28)
 
+	_dog_l = UiKit.shadowed(UiKit.label("", 17, UiKit.DIM))
+	_dog_l.position = Vector2(40, 64)
+	add_child(_dog_l)
+
 	_fps = UiKit.shadowed(UiKit.label("", 16, UiKit.DIM))
 	_fps.position = Vector2(40, 64)
 	add_child(_fps)
@@ -189,6 +196,41 @@ func _draw_map_markers() -> void:
 				var col := UiKit.FAINT if m.tagged else UiKit.ACCENT
 				c.draw_line(mp + Vector2(-6, -6), mp + Vector2(6, 6), col, 3.0)
 				c.draw_line(mp + Vector2(-6, 6), mp + Vector2(6, -6), col, 3.0)
+	# where the hunter's scent goes: a cone downwind, as far as a moose could smell it
+	if G.player and G.wind:
+		var wind: Wind = G.wind
+		var pp0 := _map_pt(G.player.global_position)
+		var steady := clampf((wind.speed - Wind.CALM) / 4.0, 0.0, 1.0)
+		var reach: float = (70.0 + 140.0 * steady) * float(G.player.scent) / 900.0 * _map_tex.size.x
+		var half := lerpf(0.7, 0.34, steady) * 1.1
+		var base_a := atan2(wind.dir.y, wind.dir.x)
+		var cone := PackedVector2Array([pp0])
+		for i in 13:
+			var a := base_a - half + 2.0 * half * float(i) / 12.0
+			cone.append(pp0 + Vector2(cos(a), sin(a)) * reach)
+		c.draw_colored_polygon(cone, Color(WIND_COL, 0.14))
+		cone.append(pp0)
+		c.draw_polyline(cone, Color(WIND_COL, 0.4), 1.5)
+		var tip := pp0 + Vector2(cos(base_a), sin(base_a)) * (reach + 14.0)
+		c.draw_string(f, tip + Vector2(-34, 5), "your scent", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(WIND_COL, 0.8))
+		# the wind, in the corner
+		var wc := Vector2(_map_tex.size.x - 46.0, 46.0)
+		c.draw_circle(wc, 30.0, Color(0, 0, 0, 0.35))
+		var wd := Vector2(wind.dir.x, wind.dir.y)
+		c.draw_line(wc - wd * 20.0, wc + wd * 16.0, WIND_COL, 3.0)
+		c.draw_colored_polygon(PackedVector2Array([wc + wd * 24.0, wc + wd * 12.0 + Vector2(-wd.y, wd.x) * 8.0, wc + wd * 12.0 - Vector2(-wd.y, wd.x) * 8.0]), WIND_COL)
+		var wl := "%s wind" % wind.from_name()
+		var lw := f.get_string_size(wl, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+		c.draw_string(f, wc + Vector2(-lw * 0.5, 48.0), wl, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, WIND_COL)
+	# the dog's GPS position
+	if G.dog and G.dog.active:
+		var dp := _map_pt(G.dog.global_position)
+		c.draw_circle(dp, 7.0, Color(0, 0, 0, 0.7))
+		c.draw_circle(dp, 5.5, DOG_COL)
+		if G.dog.out():
+			var label := "%s - %s" % [Dog.NAME, G.dog.status()]
+			c.draw_string_outline(f, dp + Vector2(10, 5), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, 4, Color(0, 0, 0, 0.75))
+			c.draw_string(f, dp + Vector2(10, 5), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, DOG_COL)
 	if G.player:
 		var pp := _map_pt(G.player.global_position)
 		var ang: float = -G.player.yaw
@@ -258,7 +300,18 @@ func _process(dt: float) -> void:
 	_banner.modulate.a = clampf(_banner_t * 1.5, 0.0, 1.0)
 	_banner.offset_top = 150.0 - clampf((_banner_t - 4.6) * 60.0, 0.0, 30.0)
 	_hit_t = maxf(_hit_t - dt / maxf(Engine.time_scale, 0.1), 0.0)
+	# the dog's GPS collar
+	var dog: Dog = G.dog
+	_dog_l.visible = dog != null and dog.active
+	if _dog_l.visible:
+		var dd: Vector3 = dog.global_position - pl.global_position
+		var txt := "%s   ·   %s" % [Dog.NAME, dog.status()]
+		if dog.out():
+			txt += "   ·   %d m %s" % [int(round(Vector2(dd.x, dd.z).length() / 10.0) * 10.0), POINTS[int(round(fposmod(rad_to_deg(atan2(dd.x, -dd.z)), 360.0) / 45.0)) % 8]]
+		_dog_l.text = txt
+		_dog_l.add_theme_color_override("font_color", DOG_COL if dog.state == Dog.S.BAY else (UiKit.TEXT if dog.out() else UiKit.DIM))
 	_fps.visible = Settings.get_v("show_fps")
+	_fps.position.y = 92.0 if _dog_l.visible else 64.0
 	if _fps.visible:
 		_fps.text = "%d fps" % Engine.get_frames_per_second()
 
@@ -316,6 +369,18 @@ func _process(dt: float) -> void:
 		_map_markers.queue_redraw()
 	_canvas.queue_redraw()
 
+## Where on the compass strip a bearing sits: (x, 0), or pinned to the edge with the
+## side it is off to (x, -1 or 1).
+func _compass_x(bearing: float, heading: float, cx: float, px_per_deg: float) -> Vector2:
+	var rel := wrapf(bearing - heading, -180.0, 180.0)
+	if absf(rel) > 56.0:
+		return Vector2(cx + signf(rel) * 56.0 * px_per_deg, signf(rel))
+	return Vector2(cx + rel * px_per_deg, 0.0)
+
+func _edge_chevron(cv: Control, at: Vector2, side: float, col: Color) -> void:
+	var pts := PackedVector2Array([at + Vector2(-side * 3.0, -5.0), at + Vector2(side * 3.0, 0.0), at + Vector2(-side * 3.0, 5.0)])
+	cv.draw_polyline(pts, Color(col, 0.85), 2.0)
+
 func toggle_map() -> void:
 	_map.visible = not _map.visible
 	Sfx.ui("rustle_2", -8.0)
@@ -354,6 +419,34 @@ func _draw_hud() -> void:
 			var col := UiKit.ACCENT if deg == 0 else UiKit.TEXT
 			cv.draw_string(fb, Vector2(x - tw * 0.5, top + 8), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(col.r, col.g, col.b, a))
 	cv.draw_colored_polygon(PackedVector2Array([Vector2(c.x - 6, top + 33), Vector2(c.x + 6, top + 33), Vector2(c.x, top + 27)]), UiKit.TEXT)
+	# ---- the wind (where it comes from) and the dog (its GPS) on the compass
+	if G.wind:
+		var wx := _compass_x(G.wind.from_bearing(), heading, c.x, px_per_deg)
+		var wy := top + 40.0
+		for i in 3:
+			var ln := 12.0 - i * 3.0
+			var yy := wy + i * 4.0
+			cv.draw_line(Vector2(wx.x - ln * 0.5 + 1, yy + 1), Vector2(wx.x + ln * 0.5 + 1, yy + 1), sh, 2.0)
+			cv.draw_line(Vector2(wx.x - ln * 0.5, yy), Vector2(wx.x + ln * 0.5, yy), Color(WIND_COL, 0.9), 2.0)
+		if wx.y != 0.0:
+			_edge_chevron(cv, Vector2(wx.x + wx.y * 11.0, wy + 4.0), wx.y, WIND_COL)
+		var wtxt := "wind from %s   ·   %s" % [G.wind.from_name(), G.wind.describe()]
+		var ww := f.get_string_size(wtxt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+		cv.draw_string(f, Vector2(c.x - ww * 0.5 + 1, top + 72), wtxt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, sh)
+		cv.draw_string(f, Vector2(c.x - ww * 0.5, top + 71), wtxt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(WIND_COL, 0.75))
+	var dog: Dog = G.dog
+	if dog and dog.out():
+		var dd: Vector3 = dog.global_position - pl.global_position
+		var dx := _compass_x(fposmod(rad_to_deg(atan2(dd.x, -dd.z)), 360.0), heading, c.x, px_per_deg)
+		var dy := top + 44.0
+		cv.draw_circle(Vector2(dx.x + 1, dy + 1), 5.0, sh)
+		cv.draw_circle(Vector2(dx.x, dy), 5.0, DOG_COL)
+		if dx.y != 0.0:
+			_edge_chevron(cv, Vector2(dx.x + dx.y * 11.0, dy), dx.y, DOG_COL)
+		else:
+			var dt := "%d m" % int(round(Vector2(dd.x, dd.z).length() / 10.0) * 10.0)
+			cv.draw_string(f, Vector2(dx.x + 9, dy + 6), dt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, sh)
+			cv.draw_string(f, Vector2(dx.x + 8, dy + 5), dt, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(DOG_COL, 0.9))
 	# ---- crosshair
 	var scoped := w.root != null and w.is_scope() and w.ads > 0.6
 	if w.root and not scoped and pl.binoc_k < 0.2 and pl.controls_enabled():

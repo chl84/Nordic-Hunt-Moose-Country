@@ -28,6 +28,19 @@ buy rifles and equipment in **Gear**.
   for another 20 %.
 - **Moose** graze, wander, lift their heads when they hear or see you, and bolt
   when startled. They never attack. A wounded animal leaves a blood trail.
+- **Wind and scent**: every hunting day has its own wind, which veers slowly and
+  drops towards dawn and dusk. A moose downwind of you smells you long before it
+  could see or hear you, and leaves. The compass marks where the wind comes from;
+  the map shows the cone your scent drifts in. Up in a hunting tower your scent
+  mostly carries over the animals. Grass, trees, leaves, breath and clouds all go
+  with the same wind.
+- **The dog**: Fant, a grey elkhound bought in **Gear**, walks at heel until you
+  let him loose with **G**. He ranges out into the wind and finds moose by scent or
+  on fresh tracks. Most bulls stand and face a baying dog; then he circles the
+  animal, barking, and the noise covers your approach - keep the wind right. A moose
+  that runs is followed until it stands or gets away. He keeps watch by a fallen
+  moose, and **G** whistles him back. His GPS collar shows on the compass and the map.
+  A shot that passes close to the dog costs points and sends him back to you.
 - **Tracking**: **E** on hoof prints tells you their age and heading and lights
   up that animal's trail; **Q** reveals every track around you.
 - **Ballistics**: bullets take time to arrive and drop with distance. Scopes show
@@ -43,7 +56,8 @@ buy rifles and equipment in **Gear**.
 | Tordenskjold .470 | double rifle | express sights | 9 500 |
 | Nordlys .300 Magnum | bolt | 4-16x scope | 14 000 |
 
-Equipment: binoculars, laser rangefinder, birch-bark moose call, felt-sole boots.
+Equipment: binoculars, laser rangefinder, birch-bark moose call, felt-sole boots,
+and a grey elkhound (7 500).
 
 ## Controls
 
@@ -62,6 +76,7 @@ Equipment: binoculars, laser rangefinder, birch-bark moose call, felt-sole boots
 | Q | reveal tracks nearby |
 | B | binoculars (hold) - bought in **Gear** |
 | V | moose call - bought in **Gear** |
+| G | let the dog loose / whistle it in - bought in **Gear** |
 | M / Tab | map |
 | Esc | pause, settings |
 
@@ -84,8 +99,17 @@ Everything is generated - there are no imported models, textures or samples.
   sky and day cycle, trees as MultiMeshes with near/far models, streamed ground
   cover, the cabin and its yard (turf roof, porch, woodshed, outhouse), pier and
   hunting towers, hoof prints and blood.
-- `scripts/moose/` - skinned procedural moose, procedural gaits, senses and
-  behaviour, hit zones, and a Verlet ragdoll that drives the skeleton.
+- `scripts/moose/` - skinned procedural moose, procedural gaits, senses (sight,
+  hearing and smell) and behaviour, hit zones, and a Verlet ragdoll that drives the
+  skeleton.
+- `scripts/dog/` - the elkhound: `dog_model.gd` builds it like the moose (a lofted
+  skin on a 17-bone skeleton, drawn with the moose's coat shader), `dog.gd` runs it -
+  heel, search into the wind, trail, bay, follow, guard, come back - with walk, trot
+  and gallop gaits, a sit, a barking jaw and a wagging tail. Round lakes it finds its
+  way on an A* grid (`AStarGrid2D`, 5 m cells) built once at load.
+- `scripts/world/wind.gd` - the day's wind: direction, strength, the slow veer, and
+  `scent()`, how strongly scent carries from one point to another. It sets the
+  `atmo_wind` shader global the grass, trees and gusts sway with.
   The moose body is one lofted skin round a 15-bone skeleton: deep chest on long
   legs, the hump over the shoulders, a mane, the long head with its overhanging
   muzzle, the bell, cupped antler palms edged with tines. `moose.gdshader` draws
@@ -139,12 +163,16 @@ Arguments after `--` are read by the game:
 ./play.sh -- --test=props --out=/tmp/x # juniper and dwarf birch (--kinds=...) up close and from 12 m
 ./play.sh -- --test=nature --out=/tmp/x # dawn mist, breath, falling leaves (--views=mist,breath,leaves)
 ./play.sh -- --test=mooseshow --out=/tmp/x # moose portraits: group, profiles, head (3/4 and side), backlit, 68 m (no HUD)
+./play.sh -- --test=dogshow --allgear --out=/tmp/x  # the elkhound posed: standing, sitting, barking, trotting, galloping
+./play.sh -- --test=dog --allgear --wind=250,4 --out=/tmp/x  # let the dog loose: find, bay, the kill, whistle in, a shot past it
+./play.sh -- --test=scent --wind=250,4 --out=/tmp/x  # a moose smells a hidden hunter upwind, not downwind or across
 ./play.sh -- --check                   # compile every script and shader, then quit
 ./play.sh -- --inputlog                # print every key press and what the game did with it (never saves)
 ```
 
-Tests: `world`, `gfx`, `trees`, `far`, `cabin`, `cabinwalk`, `menu`, `weapon`, `gear`, `moose`, `play`, `perf`. Useful extras:
-`--allgear`, `--rich`, `--seed=N`, `--minutes=N`, `--time=0..1`, `--nocache`.
+Tests: `world`, `gfx`, `trees`, `far`, `cabin`, `cabinwalk`, `menu`, `weapon`, `gear`, `moose`, `play`, `perf`,
+`dog`, `dogshow`, `scent`. Useful extras: `--allgear`, `--rich`, `--seed=N`, `--minutes=N`, `--time=0..1`, `--nocache`,
+`--wind=<from bearing>,<m/s>` (a fixed wind; test runs otherwise keep the old steady breeze), `--windseed=N`.
 
 ## License
 

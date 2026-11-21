@@ -1035,6 +1035,12 @@ func _test_menu() -> void:
 	main.menus.show_screen("gear")
 	await _wait(8)
 	await _shot("m_gear2")
+	main.menus._gear_sel = "dog"
+	main.menus._gear_is_weapon = false
+	main.menus.show_screen("gear")
+	await _wait(8)
+	await _shot("m_gear3")
+	main.menus._gear_is_weapon = true
 	main.menus.show_screen("settings")
 	await _wait(8)
 	await _shot("m_settings")
@@ -1438,3 +1444,290 @@ func _test_perf() -> void:
 			if preset == 2:
 				await _shot("perf_high_%s" % s[0])
 		print("[perf] %-7s worst %.2f ms (%.0f fps)" % [Settings.PRESET_NAMES[preset], worst, 1000.0 / worst])
+
+# -------------------------------------------------------------------- dog
+## Portraits of the elkhound, posed by hand: standing, sitting, barking, trotting,
+## galloping, and from hunting distance (no HUD).
+func _test_dogshow() -> void:
+	main.start_hunt()
+	var pl: Player = G.player
+	main.hunt["time_left"] = main.hunt["duration"] * 0.55
+	await _wait(20)
+	main.hud.visible = false
+	var d: TerrainData = G.terrain
+	var spot := _flat_spot(float(G.args.get("x", "-60")), float(G.args.get("z", "200")))
+	pl.global_position = spot + Vector3(0, -30, 60)
+	pl.visible = false
+	pl.active = false
+	for m in G.herd.moose:
+		m.position = Vector3(300, d.height(300, 300), 300)
+	var dog: Dog = G.dog
+	dog.active = false        # posed by hand: nothing moves it
+	dog.visible = true
+	dog.position = spot
+	dog.heading = PI * 0.5    # nose towards -X
+	var c := spot + Vector3(0, 0.38, 0)
+	# name, speed, sit, jaw, neck, head, camera offset
+	var shots := [
+		["side", 0.0, 0.0, 0.0, 4.0, -6.0, Vector3(0, 0.25, 2.3)],
+		["front34", 0.0, 0.0, 0.0, 4.0, -6.0, Vector3(-1.6, 0.45, 1.4)],
+		["rear34", 0.0, 0.0, 0.0, 4.0, -6.0, Vector3(1.5, 0.6, 1.3)],
+		["head", 0.0, 0.0, 0.0, 10.0, -8.0, Vector3(-0.85, 0.32, 0.55)],
+		["sit", 0.0, 1.0, 0.0, 4.0, -6.0, Vector3(-0.7, 0.3, 2.1)],
+		["bark", 0.0, 0.0, 1.0, 14.0, -12.0, Vector3(-1.2, 0.35, 1.7)],
+		["trot", 3.6, 0.0, 0.0, -2.0, -10.0, Vector3(0, 0.3, 2.6)],
+		["gallop", 7.6, 0.0, 0.0, -6.0, -12.0, Vector3(0, 0.3, 2.8)],
+		["far", 0.0, 0.0, 0.0, 4.0, -6.0, Vector3(-5.0, 1.2, 13.0)],
+	]
+	for s in shots:
+		dog.speed = s[1]
+		dog._sit = s[2]
+		dog._neck_t = s[4]
+		dog._head_t = s[5]
+		dog._look_t = 0.0
+		for i in 90:
+			dog._jaw = s[3]
+			dog._animate(1.0 / 60.0)
+		var cp: Vector3 = c + (s[6] as Vector3)
+		cp.y = maxf(cp.y, d.height(cp.x, cp.z) + 0.25)
+		_look(cp, c + Vector3(-0.05, -0.02 if s[0] != "head" else 0.25, 0))
+		cam.fov = 50.0 if s[0] != "far" else 40.0
+		await _wait(3)
+		await _shot("dog_" + s[0])
+	# a bull at bay: the dog loose and circling it, barking
+	var bull: Moose = null
+	for m in G.herd.moose:
+		if m.kind == "bull":
+			bull = m
+			break
+	var bpos := spot + Vector3(-14.0, 0, 0)
+	bull.position = Vector3(bpos.x, d.height(bpos.x, bpos.z), bpos.z)
+	bull.heading = -PI * 0.5
+	bull.awareness = 0.0
+	dog.position = spot
+	dog.active = true
+	dog.target = bull
+	bull.meet_dog(dog.global_position)
+	bull._set_state(Moose.State.BAYED)
+	bull._bay_len = 999.0
+	dog._enter(Dog.S.BAY)
+	dog._bay_ang = dog._angle_from(bull.global_position)
+	for k in 3:
+		await _secs(1.6)
+		# from behind the dog, low, the bull beyond it
+		var back := (dog.global_position - bull.global_position)
+		back.y = 0.0
+		back = back.normalized()
+		var cp2 := dog.global_position + back * 3.6 + back.cross(Vector3.UP) * 1.4
+		cp2.y = d.height(cp2.x, cp2.z) + 0.95
+		_look(cp2, bull.global_position + Vector3(0, 1.1, 0))
+		cam.fov = 40.0
+		await _wait(2)
+		await _shot("dog_bayshow_%d" % k)
+	cam.fov = 75.0
+
+## The dog in a real hunt (needs --allgear; the wind is fixed with --wind=<from>,<m/s>):
+## let loose it should find the moose upwind, bay or follow it, show on the compass and
+## the map, guard the kill, come back when whistled in, and a shot past it is a fault.
+func _test_dog() -> void:
+	main.start_hunt()
+	var pl: Player = G.player
+	var dog: Dog = G.dog
+	main.hunt["time_left"] = main.hunt["duration"] * 0.6
+	await _wait(30)
+	var d: TerrainData = G.terrain
+	var spot := _flat_spot(float(G.args.get("x", "-60")), float(G.args.get("z", "200")))
+	# a wind that puts land 170 m upwind of the hunter
+	var bull: Moose = null
+	for cand in G.herd.moose:
+		if cand.kind == "bull":
+			bull = cand
+			break
+	var up := Vector2.ZERO
+	var target_p := Vector3.ZERO
+	for i in 16:
+		var from_b := fposmod(float(G.args.get("windfrom", "250")) + i * 22.5, 360.0)
+		G.wind._set_from(from_b, 4.0)
+		G.wind._apply()
+		up = -G.wind.dir
+		target_p = spot + Vector3(up.x, 0, up.y) * 170.0
+		if d.height(target_p.x, target_p.z) > 1.0 and d.slope(target_p.x, target_p.z) < 0.25 and Vector2(target_p.x, target_p.z).length() < 360.0:
+			break
+	print("[dog] wind from %s (%.0f deg) %.1f m/s - %s; hunter at (%.0f, %.0f), bull at (%.0f, %.0f)" % [G.wind.from_name(), G.wind.from_bearing(), G.wind.speed, G.wind.describe(), spot.x, spot.z, target_p.x, target_p.z])
+	for m in G.herd.moose:
+		if m != bull:
+			m.position = Vector3(-spot.x, d.height(-spot.x, -spot.z), -spot.z)
+			m._set_state(Moose.State.GRAZE)
+			m._graze_len = 9999.0
+	bull.position = Vector3(target_p.x, d.height(target_p.x, target_p.z), target_p.z)
+	bull.awareness = 0.0
+	bull._set_state(Moose.State.GRAZE)
+	bull._graze_len = 9999.0
+	pl.global_position = Vector3(spot.x, d.height(spot.x, spot.z), spot.z)
+	pl.yaw = atan2(-up.x, -up.y)
+	dog.position = pl.global_position + Vector3(-1, 0, 1)
+	await _secs(2.0)
+	print("[dog] at start: %s, %.0f m from the bull" % [dog.status(), dog.global_position.distance_to(bull.global_position)])
+	await _tap("dog")
+	print("[dog] released: %s" % dog.status())
+	Engine.time_scale = 3.0
+	var last := ""
+	var t := 0.0
+	while t < 150.0:
+		await _secs(0.5 / 3.0)
+		t += 0.5
+		var line := "%s / bull %s" % [dog.status(), Moose.State.keys()[bull.state]]
+		if line != last or fmod(t, 10.0) < 0.01:
+			last = line
+			var dp := dog.global_position
+			print("[dog] t=%5.1f  %s  dog-bull %.0f m  dog-hunter %.0f m  at (%.0f, %.0f) h %.1f speed %.1f" % [t, line, dp.distance_to(bull.global_position), dp.distance_to(pl.global_position), dp.x, dp.z, d.height(dp.x, dp.z), dog.speed])
+		if dog.state == Dog.S.BAY and dog.state_t > 3.0:
+			break
+	Engine.time_scale = 1.0
+	if dog.state != Dog.S.BAY:
+		print("[dog] FAIL: no bay after %.0f s (%s)" % [t, dog.status()])
+	var bp := bull.global_position
+	var mid := (bp + dog.global_position) * 0.5
+	# a camera 22 m off to the side with nothing in the way
+	var base_a := atan2((dog.global_position - bp).x, (dog.global_position - bp).z) + PI * 0.5
+	var cp := mid
+	for k in 48:
+		var a := base_a + 0.13 * ceilf(k / 2.0) * (1.0 if k % 2 == 0 else -1.0)
+		cp = mid + Vector3(sin(a), 0, cos(a)) * 22.0
+		cp.y = d.height(cp.x, cp.z) + 1.6
+		var tgt := mid + Vector3(0, 0.9, 0)
+		if d.height(cp.x, cp.z) > 0.0 and d.line_clear(cp, tgt) and G.flora.ray(cp, tgt).is_empty() and G.flora.ray(cp, bp + Vector3(0, 1.4, 0)).is_empty():
+			break
+	main.hud.visible = false
+	_look(cp, mid + Vector3(0, 0.9, 0))
+	cam.fov = 32.0
+	await _wait(10)
+	await _shot("dog_bay")
+	await _secs(0.4)
+	await _shot("dog_bay2")
+	cam.fov = 75.0
+	main.hud.visible = true
+	# the hunter sneaks up downwind to 75 m: the bark covers him, the wind is right
+	var dn: Vector2 = G.wind.dir
+	# a stand downwind, 65-85 m off, with a clear line to the bull's chest
+	var hp := bp + Vector3(dn.x, 0, dn.y) * 75.0
+	var vit := bp + Vector3(0, 1.42 * bull.size, 0)
+	for k in 60:
+		var a := atan2(dn.y, dn.x) + 0.1 * ceilf(k / 2.0) * (1.0 if k % 2 == 0 else -1.0)
+		var r := 75.0 + (k % 3 - 1) * 10.0
+		var q := bp + Vector3(cos(a), 0, sin(a)) * r
+		q.y = d.height(q.x, q.z)
+		var eye := q + Vector3(0, 1.1, 0)
+		if q.y > 0.3 and d.line_clear(eye, vit) and G.flora.ray(eye, vit).is_empty() and G.flora.avoid_vector(q, 2.0).length() < 0.1:
+			hp = q
+			break
+	pl.global_position = Vector3(hp.x, d.height(hp.x, hp.z), hp.z)
+	_hold("crouch")
+	await _secs(6.0)
+	print("[dog] hunter 75 m downwind for 6 s: bull %s awareness %.2f" % [Moose.State.keys()[bull.state], bull.awareness])
+	pl.cam.make_current()
+	_aim_player_at(bull.centre())
+	main.hud.visible = true
+	await _wait(10)
+	await _shot("dog_hud")
+	main.hud.toggle_map()
+	await _wait(4)
+	await _shot("dog_map")
+	main.hud.toggle_map()
+	# the shot, when the dog is well clear of the line
+	for i in 40:
+		var to_b := bull.centre() - pl.cam.global_position
+		if not dog.near_segment(pl.cam.global_position, bull.centre() + to_b.normalized() * 3.0, 4.0):
+			break
+		await _secs(0.25)
+	var aim := bull.global_position + Vector3(0, 1.42 * bull.size, 0) + bull.forward() * 0.47 * bull.size
+	var from := pl.cam.global_position
+	G.ballistics.fire(from, (aim - from).normalized(), WeaponDB.get_weapon("varg308"), "varg308")
+	await _secs(5.0)
+	print("[dog] after the shot: bull dead=%s hits=%d last=%s | dog %s | score %d" % [bull.dead, bull.hits, bull.last_hit.get("zone", "-"), dog.status(), main.hunt["score"]])
+	if bull.dead:
+		var gp := dog.global_position + Vector3(4.0, 0, 5.0)
+		gp.y = d.height(gp.x, gp.z) + 1.6
+		_look(gp, dog.global_position + Vector3(0, 0.5, 0))
+		await _wait(6)
+		await _shot("dog_guard")
+		var np := bull.global_position + Vector3(dn.x, 0, dn.y) * 6.0
+		pl.global_position = Vector3(np.x, d.height(np.x, np.z), np.z)
+		await _secs(2.0)
+		print("[dog] hunter at the kill: %s" % dog.status())
+	_release("crouch")
+	# whistle in from a search
+	await _secs(2.0)
+	await _tap("dog")
+	await _secs(4.0)
+	print("[dog] loose again: %s" % dog.status())
+	await _tap("dog")
+	Engine.time_scale = 3.0
+	await _secs(12.0 / 3.0)
+	Engine.time_scale = 1.0
+	print("[dog] whistled in: %s, %.0f m from the hunter" % [dog.status(), dog.global_position.distance_to(pl.global_position)])
+	# a shot past the dog
+	main.hunt["score"] = int(main.hunt["score"]) + 1000
+	var score0: int = main.hunt["score"]
+	var dc := dog.centre()
+	var muzzle := pl.cam.global_position
+	G.ballistics.fire(muzzle, (dc + Vector3(0, 0.25, 0) - muzzle).normalized(), WeaponDB.get_weapon("varg308"), "varg308")
+	await _secs(0.5)
+	print("[dog] shot past the dog: score %d -> %d, dog %s, message '%s'" % [score0, main.hunt["score"], dog.status(), main.hud._msg.text])
+
+## Scent: with a fixed wind a still, unseen hunter upwind of a grazing moose is smelled
+## and it leaves; downwind, across the wind or far beyond reach it grazes on.
+func _test_scent() -> void:
+	main.start_hunt()
+	var pl: Player = G.player
+	main.hunt["time_left"] = main.hunt["duration"] * 0.6
+	await _wait(30)
+	var d: TerrainData = G.terrain
+	var spot := _flat_spot(float(G.args.get("x", "-60")), float(G.args.get("z", "200")))
+	var cow: Moose = null
+	for m in G.herd.moose:
+		if m.kind == "cow" and cow == null:
+			cow = m
+		else:
+			m.position = Vector3(-spot.x, d.height(-spot.x, -spot.z), -spot.z)
+	var mps := float(G.args.get("mps", "4.0"))
+	var cases := []
+	for i in 16:
+		G.wind._set_from(fposmod(250.0 + i * 22.5, 360.0), mps)
+		G.wind._apply()
+		var w := Vector3(G.wind.dir.x, 0, G.wind.dir.y)
+		var across := w.cross(Vector3.UP)
+		cases = [["upwind", -w * 110.0], ["upwind_near", -w * 45.0], ["downwind", w * 110.0], ["across", across * 110.0], ["upwind_far", -w * 250.0]]
+		var ok := true
+		for cs in cases:
+			var p: Vector3 = spot + (cs[1] as Vector3)
+			if d.height(p.x, p.z) < 0.8:
+				ok = false
+		if ok:
+			break
+	print("[scent] wind from %s %.1f m/s (%s)" % [G.wind.from_name(), G.wind.speed, G.wind.describe()])
+	Engine.time_scale = 2.0
+	for cs in cases:
+		cow.position = Vector3(spot.x, d.height(spot.x, spot.z), spot.z)
+		cow.awareness = 0.0
+		cow.speed = 0.0
+		cow._set_state(Moose.State.GRAZE)
+		cow._graze_len = 9999.0
+		cow._peek_next = 9999.0
+		var p: Vector3 = spot + (cs[1] as Vector3)
+		pl.global_position = Vector3(p.x, d.height(p.x, p.z), p.z)
+		pl.vel = Vector3.ZERO
+		var away := p - spot
+		pl.yaw = atan2(away.x, away.z)     # looking away from the moose
+		var peak := 0.0
+		var t := 0.0
+		var fled_at := -1.0
+		while t < 20.0:
+			await _secs(0.25 / 2.0)
+			t += 0.25
+			peak = maxf(peak, cow.awareness)
+			if cow.state == Moose.State.FLEE and fled_at < 0.0:
+				fled_at = t
+		var smell: float = G.wind.scent(pl.global_position + Vector3(0, 1.2, 0), cow.head_pos())
+		print("[scent] %-12s %4.0f m  smell %.2f  peak awareness %.2f  %s" % [cs[0], (cs[1] as Vector3).length(), smell, peak, ("FLED after %.1f s" % fled_at) if fled_at >= 0.0 else "grazed on"])
+	Engine.time_scale = 1.0

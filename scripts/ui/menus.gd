@@ -249,6 +249,7 @@ func _refresh_keys() -> void:
 		["E", "Interact", true], ["Q", "Reveal tracks", true],
 		["B", "Binoculars (hold)" if SaveGame.owns_gear("binoculars") else "Binoculars - buy in Gear", SaveGame.owns_gear("binoculars")],
 		["V", "Moose call" if SaveGame.owns_gear("call") else "Moose call - buy in Gear", SaveGame.owns_gear("call")],
+		["G", "Let the dog loose / call it in" if SaveGame.owns_gear("dog") else "Elkhound - buy in Gear", SaveGame.owns_gear("dog")],
 		["M / Tab", "Map", true],
 	]
 	for k in keys:

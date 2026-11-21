@@ -38,6 +38,8 @@ func _process(dt: float) -> void:
 	# wind: stronger on high, open ground
 	var open: float = 1.0 - G.terrain.forest_at(p.x, p.z) * 0.5
 	var wind_target := (0.16 + clampf((p.y - 5.0) / 90.0, 0.0, 1.0) * 0.3) * open
+	if G.wind:
+		wind_target *= 0.5 + 0.5 * G.wind.strength()
 	if not in_hunt:
 		wind_target *= 0.7
 	_wind_v = lerpf(_wind_v, wind_target * (0.5 if paused else 1.0), 1.0 - exp(-1.5 * dt))

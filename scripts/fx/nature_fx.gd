@@ -201,6 +201,11 @@ func _update_breath(dt: float, t: float, cam: Camera3D) -> void:
 		_moose_t[id] = left
 
 func _puff(p: CPUParticles3D, v: Vector3, tint: Color) -> void:
+	# the breath rises a little and goes off with the wind
+	if G.wind:
+		var wd: Vector2 = G.wind.dir
+		var ws: float = clampf(float(G.wind.speed) / 3.3, 0.2, 1.8)
+		p.gravity = Vector3(wd.x * 0.45 * ws, 0.1, wd.y * 0.45 * ws)
 	p.direction = v.normalized()
 	p.initial_velocity_min = v.length() * 0.85
 	p.initial_velocity_max = v.length() * 1.15
@@ -239,7 +244,7 @@ func _build_leaves() -> void:
 ## leaves come off and blow about when the grass leans.
 func gust_at(p: Vector3) -> float:
 	var time := fmod(Time.get_ticks_msec() * 0.001, 3600.0)
-	var wd := Vector2(0.8, 0.6)
+	var wd: Vector2 = G.wind.dir if G.wind else Vector2(0.8, 0.6)
 	var xz := Vector2(p.x, p.z)
 	var uv := Vector2(xz.dot(wd) * 0.014 - time * 0.1, xz.dot(Vector2(-wd.y, wd.x)) * 0.006)
 	var w := _noise_img.get_width()
@@ -289,8 +294,10 @@ func _update_leaves(dt: float, cam: Camera3D) -> void:
 		_crown_t = 0.5
 		_crowns = G.flora.birches_near(cp, LEAF_RANGE) if G.flora else PackedFloat32Array()
 	var gust := gust_at(cp)
-	var wind := Vector3(0.8, 0.0, 0.6) * (0.5 + gust * 2.6)
-	var side := Vector3(-0.6, 0.0, 0.8)
+	var wd: Vector2 = G.wind.dir if G.wind else Vector2(0.8, 0.6)
+	var ws: float = G.wind.strength() if G.wind else 1.0
+	var wind := Vector3(wd.x, 0.0, wd.y) * (0.5 + gust * 2.6) * ws
+	var side := Vector3(-wd.y, 0.0, wd.x)
 	var n_crowns := _crowns.size() / 4
 	if n_crowns > 0:
 		# a few leaves at any time, a flurry when a gust comes through

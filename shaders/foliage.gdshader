@@ -29,7 +29,7 @@ void vertex() {
 	float phase = origin.x * 0.31 + origin.z * 0.27;
 	float gust = sin(TIME * 0.9 + phase) * 0.6 + sin(TIME * 2.3 + phase * 1.7 + wp.y * 0.4) * 0.4;
 	float flutter = sin(TIME * 5.1 + wp.x * 2.1 + wp.z * 1.7) * 0.25;
-	vec3 offs = vec3(0.8, 0.0, 0.6) * (gust + flutter * sway) * 0.07 * sway * wind_strength * (0.4 + my * 0.09);
+	vec3 offs = vec3(atmo_wind.x, 0.0, atmo_wind.y) * atmo_wind.z * (gust + flutter * sway) * 0.07 * sway * wind_strength * (0.4 + my * 0.09);
 	VERTEX = wp + offs;
 	wpos = VERTEX;
 	cloud_v = atmo_cloud_sun(origin);

@@ -28,6 +28,7 @@ var look_delta := Vector2.ZERO
 var eye := EYE_STAND
 var noise := 5.0            ## metres at which a calm moose hears us
 var visibility := 1.0       ## multiplier on how far a moose can spot us
+var scent := 1.0            ## how much of our scent the wind carries to the animals
 var binoc := false
 var binoc_k := 0.0
 var breath := 1.0
@@ -126,6 +127,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_interact()
 	elif event.is_action_pressed("moose_call"):
 		_use_call()
+	elif event.is_action_pressed("dog"):
+		if not SaveGame.owns_gear("dog"):
+			_need_gear("dog")
+		elif G.dog:
+			G.dog.toggle()
 	elif event.is_action_pressed("track_sense"):
 		if G.tracks:
 			var n: int = G.tracks.highlight(global_position, 60.0, 10.0)
@@ -222,6 +228,7 @@ func _move(dt: float) -> void:
 		on_ground = true
 		noise = 4.0
 		visibility = 0.55
+		scent = 0.3             # up in the tower the scent mostly carries over them
 		eye = lerpf(eye, EYE_CROUCH + 0.25 if crouching else EYE_STAND, 1.0 - exp(-10.0 * dt))
 		return
 
@@ -324,6 +331,7 @@ func _move(dt: float) -> void:
 		target_noise = maxf(target_noise, 28.0)
 	noise = lerpf(noise, target_noise, 1.0 - exp(-(6.0 if target_noise > noise else 1.5) * dt))
 	visibility = (0.58 if crouching else 1.0) * (0.8 if sp < 0.3 else (1.25 if sprinting else 1.0))
+	scent = 1.0 + fatigue * 0.3
 	fatigue = clampf(fatigue + (dt / 9.0 if sprinting else -dt / 6.0), 0.0, 1.0)
 
 func _footstep() -> void:

@@ -99,7 +99,7 @@ func set_time(t: float, force := false) -> void:
 		_apply()
 
 func _process(dt: float) -> void:
-	_cloud_offset += Vector2(0.0011, 0.0004) * dt
+	_cloud_offset -= _wind_dir() * 0.00115 * dt
 	_update_cloud_shadows(dt)
 	_step_timer -= dt
 	# Sky uniforms re-bake the radiance map, so only touch them a few times a second.
@@ -107,13 +107,19 @@ func _process(dt: float) -> void:
 		_step_timer = 0.3
 		_apply()
 
+## The way the clouds go: with the day's wind (Wind), a little faster when it blows hard.
+func _wind_dir() -> Vector2:
+	if G.wind == null:
+		return Vector2(0.8, 0.6)
+	return G.wind.dir * lerpf(0.8, 1.25, clampf((float(G.wind.speed) - 1.5) / 4.5, 0.0, 1.0))
+
 ## The clouds' shadows drift downwind at about 8 m/s (frozen in test runs, so pictures
 ## compare, unless --clouddrift). They fade out with a low sun, when there is little direct
 ## light to take away. The sun itself is dimmed by the clouds over the camera, which keeps
 ## plain materials (moose, rifle) right; the landscape shaders correct for it elsewhere.
 func _update_cloud_shadows(dt: float) -> void:
 	if G.test_mode == "" or G.args.has("clouddrift"):
-		_shadow_off += Vector2(0.94, 0.34) * 0.0072 * dt
+		_shadow_off -= _wind_dir() * 0.0072 * dt
 	elif G.args.has("cloudoff"):          # dev: park the clouds elsewhere (--cloudoff=x,y)
 		var parts := String(G.args["cloudoff"]).split(",")
 		_shadow_off = Vector2(float(parts[0]), float(parts[1]))

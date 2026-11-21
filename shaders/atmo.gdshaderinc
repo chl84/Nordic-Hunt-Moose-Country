@@ -9,6 +9,7 @@ global uniform vec3 atmo_horizon;   // sky at the horizon
 global uniform vec4 atmo_haze;      // rgb = haze colour, a = strength of the haze band low in the sky
 global uniform vec4 atmo_fog;       // x = haze density at lake level (1/m), y = scale height (m), z = sun glow
 global uniform vec4 atmo_cloud;     // xy = drift of the cloud shadows, z = share of the sun a cloud takes, w = sun let through over the camera
+global uniform vec4 atmo_wind;      // xy = the way the wind blows (unit), z = how hard (1 = moderate breeze), w = m/s (Wind)
 global uniform sampler2D atmo_cloud_tex : filter_linear, repeat_enable;
 
 // Sky colour without clouds or the sun disc.
@@ -64,9 +65,9 @@ float atmo_cloud_sun(vec3 p) {
 
 // Gusts: broad bands of stronger wind rolling downwind across the valley (0..1).
 // The grass and the open ground take them from the same texture, so the waves run on
-// from the blades into the meadow beyond them.
+// from the blades into the meadow beyond them. (NatureFx.gust_at() mirrors this.)
 float atmo_gust(sampler2D t, vec2 xz, float time) {
-	vec2 wd = vec2(0.8, 0.6);
+	vec2 wd = atmo_wind.xy;
 	vec2 uv = vec2(dot(xz, wd) * 0.014 - time * 0.1, dot(xz, vec2(-wd.y, wd.x)) * 0.006);
 	return smoothstep(0.45, 0.78, textureLod(t, uv, 0.0).r);
 }

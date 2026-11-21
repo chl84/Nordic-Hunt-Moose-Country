@@ -168,6 +168,7 @@ func _setup_input() -> void:
 	_bind("moose_call", [KEY_V])
 	_bind("map", [KEY_M, KEY_TAB])
 	_bind("track_sense", [KEY_Q])
+	_bind("dog", [KEY_G])
 	_bind("weapon_1", [KEY_1])
 	_bind("weapon_2", [KEY_2])
 	_bind("weapon_3", [KEY_3])

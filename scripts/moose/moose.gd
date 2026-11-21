@@ -1,9 +1,10 @@
 class_name Moose
 extends Node3D
-## One moose: wanders, grazes, notices the hunter, flees - never attacks.
-## Movement is kinematic on the height field; animation is fully procedural.
+## One moose: wanders, grazes, notices the hunter (sees, hears and smells him), flees -
+## never attacks. Stands for a baying dog. Movement is kinematic on the height field;
+## animation is fully procedural.
 
-enum State { GRAZE, WANDER, ALERT, FLEE, LURED, DEAD }
+enum State { GRAZE, WANDER, ALERT, FLEE, LURED, BAYED, DEAD }
 
 const B := MooseModel.B
 
@@ -29,6 +30,9 @@ var ragdoll: MooseRagdoll
 var skel: Skeleton3D
 var threat := Vector3.ZERO
 var weight := 400.0
+var winded := false         ## last alarm came from the hunter's scent
+var dog_pos := Vector3.ZERO ## where the dog that holds it is
+var bay_count := 0          ## times it has stood for the dog today
 
 var _mesh: MeshInstance3D
 var _target := Vector3.ZERO
@@ -56,6 +60,10 @@ var _pending: Array = []     ## delayed alarms: [seconds, kind, position]
 var _pitch := 0.0
 var _lure_stop := 45.0
 var _stuck := 0.0
+var _bay_len := 0.0
+var _dog_cool := 0.0        ## after breaking from the dog it keeps going a while
+var _lunge := 0.0           ## > 0: rushing the dog
+var _lunge_next := 6.0
 var _rng := RandomNumberGenerator.new()
 
 func setup(p_kind: String, p_id: int, pos: Vector3, facing: float) -> void:
@@ -117,6 +125,7 @@ func _process(dt: float) -> void:
 			ragdoll.apply()
 		return
 	state_t += dt
+	_dog_cool = maxf(_dog_cool - dt, 0.0)
 	_update_pending(dt)
 	_think -= dt
 	if _think <= 0.0:
@@ -161,6 +170,7 @@ func _react(what: String, from: Vector3) -> void:
 	if dead:
 		return
 	threat = from
+	winded = false
 	match what:
 		"flee":
 			_start_flee(from)
@@ -178,12 +188,19 @@ func _sense(dt: float) -> void:
 		return
 	var to_p := pl.global_position - global_position
 	var d := to_p.length()
-	if d > 190.0:
+	# the nose reaches furthest: downwind of the hunter it smells him long before it could
+	# see or hear him (from a tower the scent mostly carries over the animals)
+	var smell := 0.0
+	if G.wind and d < 260.0:
+		smell = G.wind.scent(pl.global_position + Vector3(0, 1.2, 0), head_pos()) * pl.scent
+	if d > 190.0 and smell < 0.04:
 		awareness = maxf(awareness - dt * 0.08, 0.0)
 		return
 	var alert_mul := 1.3 if state == State.ALERT else 1.0
-	var heard := d < pl.noise * alert_mul
-	var see_range := 80.0 * pl.visibility * alert_mul
+	# held by a barking dog it hears little else and watches the dog
+	var busy := state == State.BAYED
+	var heard := d < pl.noise * alert_mul * (0.4 if busy else 1.0)
+	var see_range := 80.0 * pl.visibility * alert_mul * (0.75 if busy else 1.0)
 	if G.terrain.forest_at(pl.global_position.x, pl.global_position.z) > 0.55:
 		see_range *= 0.68
 	if G.sky and G.sky.is_twilight():
@@ -191,10 +208,16 @@ func _sense(dt: float) -> void:
 	var facing := forward().dot(to_p / maxf(d, 0.01))
 	var fov_ok := facing > (0.1 if (state == State.GRAZE and _peek <= 0.0) else -0.5)
 	var seen: bool = d < see_range and fov_ok and G.terrain.line_clear(head_pos(), pl.cam.global_position)
+	var gain := 0.0
 	if heard or seen:
 		var closeness := 1.0 - d / maxf(maxf(see_range, pl.noise * alert_mul), 1.0)
-		awareness += dt * (0.3 + 1.5 * clampf(closeness, 0.0, 1.0)) * (1.7 if (heard and seen) else 1.0)
+		gain = dt * (0.3 + 1.5 * clampf(closeness, 0.0, 1.0)) * (1.7 if (heard and seen) else 1.0)
+	if smell > 0.04:
+		gain += dt * (0.15 + 1.4 * smell)
+	if gain > 0.0:
+		awareness += gain
 		threat = pl.global_position
+		winded = smell > 0.04 and not (heard or seen)
 	else:
 		awareness -= dt * (0.1 if state == State.ALERT else 0.16)
 	if d < 11.0:
@@ -202,6 +225,9 @@ func _sense(dt: float) -> void:
 		threat = pl.global_position
 	awareness = clampf(awareness, 0.0, 1.3)
 	match state:
+		State.BAYED:
+			if awareness >= 1.0:
+				_start_flee(threat)
 		State.GRAZE, State.WANDER, State.LURED:
 			if awareness >= 1.0:
 				_start_flee(threat)
@@ -219,6 +245,8 @@ func _sense(dt: float) -> void:
 func _start_flee(from: Vector3) -> void:
 	if dead:
 		return
+	if winded and state != State.FLEE and G.herd:
+		G.herd.winded_by(self)
 	threat = from
 	awareness = 1.2
 	_flee_len = _rng.randf_range(7.0, 11.0) + (4.0 if wounded else 0.0)
@@ -251,12 +279,59 @@ func _pick_target(far: bool) -> void:
 	_target = best
 
 func lure(to: Vector3) -> bool:
-	if dead or wounded or state == State.FLEE or state == State.ALERT:
+	if dead or wounded or state == State.FLEE or state == State.ALERT or state == State.BAYED:
 		return false
 	_target = to
 	_lure_stop = _rng.randf_range(28.0, 55.0)
 	_set_state(State.LURED)
 	return true
+
+# -------------------------------------------------------------------- dog
+## The dog has come up to it. Most bulls stand and face a baying dog, cows and young
+## ones as often run; a wounded or tired animal stands more readily, one that already
+## knows the hunter is near less. Returns true if it stands (BAYED).
+func meet_dog(from: Vector3) -> bool:
+	if dead:
+		return false
+	dog_pos = from
+	if state == State.BAYED:
+		return true
+	if _dog_cool > 0.0 or state == State.FLEE:
+		return false
+	var p: float = {"cow": 0.5, "young": 0.45, "bull": 0.68, "trophy": 0.74}[kind]
+	if wounded:
+		p = 0.88
+	p += 0.12 * bay_count - 0.35 * clampf(awareness - 0.45, 0.0, 0.8)
+	if _rng.randf() < p:
+		bay_count += 1
+		_bay_len = _rng.randf_range(80.0, 170.0)
+		_lunge_next = _rng.randf_range(4.0, 10.0)
+		_lunge = 0.0
+		awareness = minf(awareness, 0.6)
+		_set_state(State.BAYED)
+		Sfx.play_at("moose_snort", head_pos(), -2.0, _rng.randf_range(0.85, 1.0), 14.0)
+		return true
+	winded = false
+	_start_flee(from)
+	_flee_len = _rng.randf_range(6.0, 11.0)
+	return false
+
+## Where the baying dog is now (called by the dog while it holds the animal).
+func dog_near(from: Vector3) -> void:
+	dog_pos = from
+
+## The dog was called off: the animal stays wary a while, then settles.
+func dog_left() -> void:
+	if state == State.BAYED:
+		threat = dog_pos
+		awareness = 0.6
+		_set_state(State.ALERT)
+
+func is_bayed() -> bool:
+	return state == State.BAYED
+
+func is_lunging() -> bool:
+	return state == State.BAYED and _lunge > 0.0
 
 # ----------------------------------------------------------------- behave
 func _behave(dt: float) -> void:
@@ -303,6 +378,33 @@ func _behave(dt: float) -> void:
 			_look_t = clampf(rad_to_deg(rel), -80.0, 80.0)
 			if absf(rel) > 1.3:
 				heading += signf(rel) * 0.7 * dt
+		State.BAYED:
+			# head to the dog, ears forward, now and then a rush at it; after a while it
+			# has had enough and walks off (the dog follows, and it may stand again)
+			var to_d := dog_pos - global_position
+			var rel := wrapf(atan2(-to_d.x, -to_d.z) - heading, -PI, PI)
+			heading += clampf(rel, -1.5 * dt, 1.5 * dt)
+			_neck_t = 6.0
+			_head_t = -12.0
+			_look_t = clampf(rad_to_deg(rel), -60.0, 60.0)
+			_lunge_next -= dt
+			if _lunge > 0.0:
+				_lunge -= dt
+				want_speed = 3.4
+				_neck_t = -10.0
+				_head_t = -4.0
+			elif _lunge_next <= 0.0:
+				_lunge_next = _rng.randf_range(6.0, 15.0)
+				if absf(rel) < 0.5 and Vector2(to_d.x, to_d.z).length() < 22.0:
+					_lunge = _rng.randf_range(0.6, 1.1)
+			if state_t > _bay_len:
+				# walks off, away from the dog
+				_dog_cool = _rng.randf_range(22.0, 45.0)
+				var away := global_position - dog_pos
+				away.y = 0.0
+				away = (away.normalized() if away.length() > 0.5 else -forward()).rotated(Vector3.UP, _rng.randf_range(-0.6, 0.6))
+				_target = global_position + away * 90.0
+				_set_state(State.WANDER)
 		State.FLEE:
 			steer = true
 			turn_rate = 2.4
@@ -457,7 +559,7 @@ func _animate(dt: float) -> void:
 			var q := skel.get_bone_pose_rotation(fb[0])
 			skel.set_bone_pose_rotation(fb[0], Quaternion(Vector3.FORWARD, deg_to_rad(9.0 * float(fb[1]) * splay)) * Quaternion(Vector3.RIGHT, deg_to_rad(-7.0 * splay)) * q)
 	# neck and head
-	var k := 1.0 - exp(-(4.0 if state == State.ALERT or state == State.FLEE else 2.2) * dt)
+	var k := 1.0 - exp(-(4.0 if state in [State.ALERT, State.FLEE, State.BAYED] else 2.2) * dt)
 	_neck = lerpf(_neck, _neck_t, k)
 	_head = lerpf(_head, _head_t, k)
 	_look = lerpf(_look, _look_t, k)
@@ -547,6 +649,7 @@ func take_hit(zone: String, pos: Vector3, dir: Vector3, damage: float, dist: flo
 			mult = 0.42
 			text = "Leg shot"
 	hits += 1
+	winded = false
 	var undisturbed := state in [State.GRAZE, State.WANDER, State.LURED] and awareness < 0.5
 	last_hit = {
 		"zone": zone, "text": text, "dist": dist, "weapon": weapon, "moving": speed > 3.0,

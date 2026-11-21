@@ -28,7 +28,7 @@ void vertex() {
 	float w = sin(TIME * 1.7 + wp.x * 0.7 + wp.z * 0.5) * 0.6 + sin(TIME * 3.9 + wp.x * 1.9 - wp.z * 1.3) * 0.4;
 	// a gust leans the whole tuft downwind and sets it shaking harder
 	float gust = atmo_gust(gust_tex, origin.xz, TIME) * wind_strength;
-	vec3 offs = vec3(0.8, 0.0, 0.6) * (w * 0.06 * (0.6 + gust) + gust * 0.17) * tip * wind_strength * keep;
+	vec3 offs = vec3(atmo_wind.x, 0.0, atmo_wind.y) * atmo_wind.z * (w * 0.06 * (0.6 + gust) + gust * 0.17) * tip * wind_strength * keep;
 	offs.y -= gust * 0.06 * tip * keep;
 	VERTEX = origin + rel + offs;
 	wpos = wp + offs;
