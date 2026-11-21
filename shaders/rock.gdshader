@@ -53,15 +53,20 @@ void fragment() {
 	// the damp foot
 	col *= mix(0.6, 1.0, smoothstep(-0.05, 0.4, above + (fine.b - 0.5) * 0.25));
 	col *= COLOR.rgb;
+	// the day's weather: snow on what faces up, rain darkening the stone
+	float cap = atmo_weather.y * smoothstep(0.25, 0.65, wn.y + (big.g - 0.5) * 0.5 + (fine.r - 0.5) * 0.2);
+	col = mix(col, vec3(0.78, 0.8, 0.85) * (0.92 + 0.1 * fine.g), cap);
+	float soaked = atmo_weather.x * (1.0 - cap);
+	col *= 1.0 - 0.35 * soaked;
 
 	// a rough, pitted surface: the grain tilts the light a little (less under the moss)
-	vec3 bend = (fine - 0.5) * (0.55 - 0.3 * moss);
+	vec3 bend = (fine - 0.5) * (0.55 - 0.3 * moss) * (1.0 - 0.7 * cap);
 	vec3 wb = normalize((MODEL_MATRIX * vec4(normalize(n + bend), 0.0)).xyz);
 
 	vec4 haze = atmo_fogging(wpos, CAMERA_POSITION_WORLD);
 	ALBEDO = col * atmo_keep(haze.a);
-	ROUGHNESS = mix(0.82, 0.97, moss);
-	SPECULAR = (0.18 - 0.12 * moss) * (1.0 - haze.a);
+	ROUGHNESS = mix(mix(0.82, 0.97, moss), 0.42, soaked * 0.6);
+	SPECULAR = (0.18 - 0.12 * moss + 0.15 * soaked) * (1.0 - haze.a);
 	spec_v = SPECULAR;
 	vec3 sky = mix(atmo_horizon, atmo_top, 0.25);
 	vec3 extra = col * sky * fill * (0.62 + 0.38 * wb.y);

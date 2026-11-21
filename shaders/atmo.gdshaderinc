@@ -10,6 +10,7 @@ global uniform vec4 atmo_haze;      // rgb = haze colour, a = strength of the ha
 global uniform vec4 atmo_fog;       // x = haze density at lake level (1/m), y = scale height (m), z = sun glow
 global uniform vec4 atmo_cloud;     // xy = drift of the cloud shadows, z = share of the sun a cloud takes, w = sun let through over the camera
 global uniform vec4 atmo_wind;      // xy = the way the wind blows (unit), z = how hard (1 = moderate breeze), w = m/s (Wind)
+global uniform vec4 atmo_weather;   // x = wet ground, y = snow lying, z = rain falling, w = snow falling, all 0..1 (Weather)
 global uniform sampler2D atmo_cloud_tex : filter_linear, repeat_enable;
 
 // Sky colour without clouds or the sun disc.

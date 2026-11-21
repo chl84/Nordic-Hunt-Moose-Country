@@ -16,12 +16,14 @@ uniform float fine_range = 32.0;    // limbs and dead twigs (UV.y >= 500; trunks
 varying float sway;
 varying vec3 wpos;
 varying float hgt;                  // metres up the tree
+varying vec3 nrm_w;                 // world normal (snow settles on what faces up)
 varying float cloud_v;              // sun let through the clouds (see atmo_cloud_sun)
 
 // (world_vertex_coords: VERTEX and NORMAL arrive in world space, so the wind is
 // simply added; no per-vertex matrix inverse to take it back into the model)
 void vertex() {
 	sway = COLOR.a;
+	nrm_w = NORMAL;
 	vec3 wp = VERTEX;
 	vec3 origin = MODEL_MATRIX[3].xyz;
 	float my = (wp.y - origin.y) / max(length(MODEL_MATRIX[1].xyz), 0.001);   // height in the model
@@ -92,6 +94,10 @@ void fragment() {
 			alb = mix(alb, mix(thin, thick, low), wood);
 		}
 	}
+	// the day's weather: snow along the tops of limbs and boughs, rain darkening the bark
+	float cap = atmo_weather.y * smoothstep(0.3, 0.75, normalize(nrm_w).y) * 0.9;
+	alb = mix(alb, vec3(0.8, 0.82, 0.86), cap);
+	alb *= 1.0 - 0.25 * atmo_weather.x * (1.0 - cap);
 	vec4 haze = atmo_fogging(wpos, CAMERA_POSITION_WORLD);
 	ALBEDO = alb * atmo_keep(haze.a);
 	ROUGHNESS = roughness;

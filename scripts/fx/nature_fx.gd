@@ -52,7 +52,11 @@ func _process(dt: float) -> void:
 ## How thick the mist lies: all there at first light, lifting from about 07:30 and gone by
 ## 08:15 (the hunt runs 06:30 -> 18:30 as t 0 -> 1); a faint trace again in the last of the dusk.
 static func mist_amount(t: float) -> float:
-	return (1.0 - smoothstep(0.083, 0.146, t)) + smoothstep(0.92, 0.99, t) * 0.3
+	var m := (1.0 - smoothstep(0.083, 0.146, t)) + smoothstep(0.92, 0.99, t) * 0.3
+	# a foggy day keeps it lying over the water as long as the fog lasts; rain leaves a little
+	if G.weather:
+		m = maxf(m, float(G.weather.fog) * 1.1 + float(G.weather.rain) * 0.3)
+	return clampf(m, 0.0, 1.2)
 
 ## How cold the air is for breath to show: the frosty early morning (gone by about 08:30),
 ## and again from about 17:30.

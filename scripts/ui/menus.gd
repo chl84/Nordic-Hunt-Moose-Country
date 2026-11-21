@@ -493,6 +493,7 @@ func _refresh_settings() -> void:
 	_toggle(b, "Show frame rate", "show_fps")
 	_section(b, "GAMEPLAY")
 	_option(b, "Length of a hunting day", ["8 minutes", "12 minutes", "20 minutes", "30 minutes"], [8, 12, 20, 30].find(int(Settings.get_v("hunt_minutes"))), func(i): Settings.set_v("hunt_minutes", [8, 12, 20, 30][i]))
+	_option(b, "Weather", ["Changes every day", "Always clear", "Always overcast", "Always rain", "Always fog", "Always snow"], int(Settings.get_v("weather")), func(i): Settings.set_v("weather", i))
 	_toggle(b, "Slow motion on long kills", "slowmo")
 	_toggle(b, "Blood", "blood")
 	_toggle(b, "Weapon sway", "sway")

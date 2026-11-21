@@ -38,6 +38,10 @@ void vertex() {
 	alb = mix(vec3(dot(alb, vec3(0.3, 0.59, 0.11))), alb, 0.88);
 	// foliage seen from the inside of the crown sits in its shade
 	alb *= mix(0.74, 1.0, smoothstep(-0.3, 0.2, dot(wn, to_eye / max(dist, 0.001))));
+	// the day's weather: snow caught on the upper boughs, wet foliage a little darker
+	float cap = atmo_weather.y * smoothstep(0.1, 0.7, wn.y) * 0.75;
+	alb = mix(alb, vec3(0.95, 0.97, 1.0), cap);
+	alb *= 1.0 - 0.2 * atmo_weather.x * (1.0 - cap);
 	vec4 haze = atmo_fogging(wp, CAMERA_POSITION_WORLD);
 	tone = alb * atmo_keep(haze.a);
 	glow = atmo_emit(haze, vec3(0.0));

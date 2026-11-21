@@ -202,6 +202,8 @@ func _draw_map_markers() -> void:
 		var pp0 := _map_pt(G.player.global_position)
 		var steady := clampf((wind.speed - Wind.CALM) / 4.0, 0.0, 1.0)
 		var reach: float = (70.0 + 140.0 * steady) * float(G.player.scent) / 900.0 * _map_tex.size.x
+		if G.weather:
+			reach *= G.weather.scent_mul()
 		var half := lerpf(0.7, 0.34, steady) * 1.1
 		var base_a := atan2(wind.dir.y, wind.dir.x)
 		var cone := PackedVector2Array([pp0])
@@ -283,6 +285,8 @@ func _process(dt: float) -> void:
 	# clock + score
 	var hunt: Dictionary = main.hunt
 	_clock.text = "%s   ·   %s left" % [G.sky.clock(), G.fmt_time(hunt.get("time_left", 0.0))]
+	if G.weather and G.weather.kind != "clear":
+		_clock.text = "%s   ·   %s   ·   %s left" % [G.sky.clock(), G.weather.describe(), G.fmt_time(hunt.get("time_left", 0.0))]
 	_shown_score = lerpf(_shown_score, float(hunt.get("score", 0)), 1.0 - exp(-6.0 * dt))
 	_score.text = G.fmt_int(int(round(_shown_score)))
 	var kills: Array = hunt.get("kills", [])

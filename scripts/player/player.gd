@@ -134,7 +134,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			G.dog.toggle()
 	elif event.is_action_pressed("track_sense"):
 		if G.tracks:
-			var n: int = G.tracks.highlight(global_position, 60.0, 10.0)
+			# (in fresh snow every track shows from far off)
+			var snowy: float = G.weather.snow if G.weather else 0.0
+			var n: int = G.tracks.highlight(global_position, 60.0 * (1.0 + 0.9 * snowy), 10.0)
 			message.emit("No tracks nearby" if n == 0 else "Tracks nearby", 2.0)
 	else:
 		for i in 5:
@@ -320,6 +322,8 @@ func _move(dt: float) -> void:
 			_footstep()
 	# how loud / visible we are
 	var quiet := 0.62 if SaveGame.owns_gear("boots") else 1.0
+	if G.weather:
+		quiet *= G.weather.step_mul()
 	var target_noise := 5.0
 	if sp > 0.4:
 		target_noise = 60.0 if sprinting else (13.0 if crouching else 32.0)
@@ -346,6 +350,8 @@ func _footstep() -> void:
 		Sfx.play_var("step_rock", 3, vol - 2.0, 0.05)
 	elif t.slope(p.x, p.z) > 0.26 or p.y > 120.0:
 		Sfx.play_var("step_rock", 3, vol)
+	elif G.weather and G.weather.snow > 0.3:
+		Sfx.play_var("step_snow", 4, vol + 1.0)
 	elif t.forest_at(p.x, p.z) > 0.4:
 		Sfx.play_var("step_forest", 4, vol)
 	else:

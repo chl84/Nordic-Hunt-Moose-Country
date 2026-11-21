@@ -199,8 +199,11 @@ func _sense(dt: float) -> void:
 	var alert_mul := 1.3 if state == State.ALERT else 1.0
 	# held by a barking dog it hears little else and watches the dog
 	var busy := state == State.BAYED
-	var heard := d < pl.noise * alert_mul * (0.4 if busy else 1.0)
-	var see_range := 80.0 * pl.visibility * alert_mul * (0.75 if busy else 1.0)
+	# the weather: rain hides the hunter's footsteps, fog and falling rain or snow his shape
+	var wh: float = G.weather.hear_mul() if G.weather else 1.0
+	var ws: float = G.weather.see_mul() if G.weather else 1.0
+	var heard := d < pl.noise * alert_mul * (0.4 if busy else 1.0) * wh
+	var see_range := 80.0 * pl.visibility * alert_mul * (0.75 if busy else 1.0) * ws
 	if G.terrain.forest_at(pl.global_position.x, pl.global_position.z) > 0.55:
 		see_range *= 0.68
 	if G.sky and G.sky.is_twilight():
@@ -271,7 +274,9 @@ func _pick_target(far: bool) -> void:
 		var h: float = G.terrain.height(c.x, c.z)
 		if h < 0.5:
 			continue
-		var s: float = 1.0 - G.terrain.forest_at(c.x, c.z) * 0.7 - G.terrain.slope(c.x, c.z) * 3.0
+		# (they like the open bogs and clearings, but in the rain they keep to the trees)
+		var rainy: float = G.weather.rain if G.weather else 0.0
+		var s: float = 1.0 - G.terrain.forest_at(c.x, c.z) * (0.7 - 1.6 * rainy) - G.terrain.slope(c.x, c.z) * 3.0
 		s += (0.5 if h < 4.0 else 0.0) + _rng.randf() * 0.5
 		if s > best_s:
 			best_s = s

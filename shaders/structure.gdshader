@@ -112,6 +112,11 @@ void fragment() {
 	}
 	vec3 n_obj = normalize(n + bend);
 	vec3 wn = normalize((MODEL_MATRIX * vec4(n_obj, 0.0)).xyz);
+	// the day's weather: snow on the roofs and anything else facing up, wet wood darker
+	float cap = atmo_weather.y * smoothstep(0.45, 0.8, wn.y);
+	col = mix(col, vec3(0.78, 0.8, 0.85), cap);
+	col *= 1.0 - 0.28 * atmo_weather.x * (1.0 - cap);
+	rough = mix(rough, 0.5, atmo_weather.x * 0.5 * (1.0 - cap));
 	vec4 haze = atmo_fogging(wpos, CAMERA_POSITION_WORLD);
 	ALBEDO = col * atmo_keep(haze.a);
 	ROUGHNESS = rough;

@@ -24,6 +24,7 @@ const DEFAULTS := {
 	"fov": 75.0,
 	# gameplay
 	"hunt_minutes": 12,
+	"weather": 0,           # 0 a new weather every day, 1.. one kind (Weather.KINDS)
 	"slowmo": true,
 	"blood": true,
 	"sway": true,

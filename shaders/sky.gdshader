@@ -9,6 +9,7 @@ uniform vec2 cloud_offset = vec2(0.0);
 uniform float cloud_cover = 0.45;
 uniform vec3 cloud_lit : source_color = vec3(1.0);
 uniform vec3 cloud_dark : source_color = vec3(0.5, 0.55, 0.62);
+uniform float veil = 0.0;          // a grey sky (Weather) hides the sun's disc, leaving a soft glow
 
 void sky() {
 	vec3 dir = EYEDIR;
@@ -31,7 +32,8 @@ void sky() {
 		ccol = mix(ccol, mix(atmo_horizon, atmo_haze.rgb, atmo_haze.a), low * 0.75);
 		col = mix(col, ccol, cov * 0.9);
 	}
-	col += atmo_sun_col * (smoothstep(0.99935, 0.99975, sd) * 5.0 + pow(sd, 350.0) * 1.2);
+	col += atmo_sun_col * (smoothstep(0.99935, 0.99975, sd) * 5.0 + pow(sd, 350.0) * 1.2) * (1.0 - 0.95 * veil)
+		+ atmo_sun_col * pow(sd, 12.0) * 0.18 * veil;
 	col = mix(col, ground_color, smoothstep(0.0, -0.1, y));
 	COLOR = col;
 }

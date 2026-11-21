@@ -744,6 +744,7 @@ def main():
     write("breath_in", breath(True), 0.35)
     write("breath_out", breath(False), 0.35)
     main_dog()
+    main_weather()
     print("done.")
 
 
@@ -790,6 +791,51 @@ def main_dog():
     for i, (seed, base, dur, rough) in enumerate(((901, 560, 0.2, 1.0), (902, 610, 0.17, 0.9), (903, 520, 0.23, 1.2), (904, 585, 0.19, 1.05))):
         write(f"dog_bark_{i + 1}", dog_bark(seed, base, dur, rough), 0.9)
     write("dog_whistle", dog_whistle(), 0.6)
+
+
+# --------------------------------------------------------------- weather
+def rain_loop(dur=10.0):
+    """Steady rain on leaves and grass, seamless: the hiss of countless far drops and a
+    patter of near ones (both filtered round the loop, so it joins up)."""
+    r = np.random.default_rng(77)
+    n = secs(dur)
+    out = np.zeros((n, 2))
+    for ch in range(2):
+        bed = periodic_noise(n, lambda f: (1.0 - 1.0 / np.sqrt(1.0 + (f / 450.0) ** 4)) / np.sqrt(1.0 + (f / 3800.0) ** 2))
+        ticks = np.zeros(n)
+        L = secs(0.012)
+        shape_t = np.exp(-np.arange(L) / (SR * 0.0022))
+        for k in range(int(dur * 300)):
+            i = r.integers(0, n)
+            idx = (i + np.arange(L)) % n
+            ticks[idx] += r.standard_normal(L) * shape_t * r.uniform(0.15, 1.0) ** 2
+        ticks = bp(ticks, 1100, 9000)
+        out[:, ch] = bed * 0.4 + ticks / (np.std(ticks) + 1e-9) * 0.22
+    return out
+
+
+def step_snow(seed):
+    """A boot in fresh snow: a quick squeaky crunch of many tiny crackles over a soft thud."""
+    r = np.random.default_rng(seed)
+    n = secs(0.32)
+    t = tt(n)
+    env = np.exp(-((t - 0.06) / 0.045) ** 2) + 0.55 * np.exp(-((t - 0.15) / 0.06) ** 2)
+    grains = np.zeros(n)
+    L = secs(0.004)
+    g_env = np.exp(-np.arange(L) / (SR * 0.0007))
+    for k in range(300):
+        i = int(r.uniform(0.0, 0.27) * SR)
+        j = min(n, i + L)
+        grains[i:j] += (r.standard_normal(L) * g_env)[: j - i] * r.uniform(0.3, 1.0)
+    x = bp(grains, 600, 6500) * env
+    x += lp(r.standard_normal(n), 280) * env * 0.45
+    return fade(x, 0.002, 0.06)
+
+
+def main_weather():
+    write("rain_loop", rain_loop().reshape(-1), 0.55, stereo=True)
+    for i in range(4):
+        write(f"step_snow_{i + 1}", step_snow(1100 + i), 0.5)
 
 
 if __name__ == "__main__":

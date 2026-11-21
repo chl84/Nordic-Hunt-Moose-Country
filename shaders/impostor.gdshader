@@ -17,6 +17,8 @@ varying vec3 right_w;
 varying vec3 fwd_w;
 varying float across;
 varying float cloud_v;              // sun let through the clouds (see atmo_cloud_sun)
+varying float snow_v;               // snow on the upper boughs (the day's weather)
+varying float keep_v;
 
 // (world_vertex_coords: VERTEX arrives in world space; the card's own x and y are
 // read back off the instance's axes, and the turned card is written out directly)
@@ -42,7 +44,9 @@ void vertex() {
 	VERTEX = wp;
 	cloud_v = atmo_cloud_sun(MODEL_MATRIX[3].xyz);
 	vec4 haze = atmo_fogging(wp, CAMERA_POSITION_WORLD);
-	tint = pow(COLOR.rgb, vec3(1.3)) * atmo_keep(haze.a);
+	tint = pow(COLOR.rgb, vec3(1.3)) * atmo_keep(haze.a) * (1.0 - 0.2 * atmo_weather.x);
+	keep_v = atmo_keep(haze.a);
+	snow_v = atmo_weather.y * 0.6 * smoothstep(0.05, 0.6, top);
 	glow = atmo_emit(haze, vec3(0.0));
 	across = UV.x * 2.0 - 1.0;
 	float u = h2 < 0.5 ? UV.x : 1.0 - UV.x;
@@ -61,6 +65,8 @@ void fragment() {
 	ALPHA_SCISSOR_THRESHOLD = mix(lod_cut[l0], lod_cut[l0 + 1], fract(lod));
 	// the pictures blend towards transparent black at their edges: undo that
 	ALBEDO = t.rgb / max(t.a, 0.08) * tint;
+	// the sunlit tops of the boughs in the picture take the snow
+	ALBEDO = mix(ALBEDO, vec3(0.8, 0.82, 0.86) * keep_v, snow_v * smoothstep(0.04, 0.2, t.g / max(t.a, 0.08)));
 	ROUGHNESS = 0.9;
 	SPECULAR = 0.0;
 	EMISSION = glow;

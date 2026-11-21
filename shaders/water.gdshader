@@ -106,6 +106,21 @@ vec3 mirror(vec3 p, vec3 r, float rough) {
 	return col;
 }
 
+// Rings spreading where raindrops land: one drop to a cell of the grid, each at its own
+// moment and spot, the ring's slope pushing the normal outwards and back.
+vec2 rain_rings(vec2 p, float t) {
+	vec2 cell = floor(p);
+	vec2 f = fract(p) - 0.5;
+	float h = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
+	float h2 = fract(h * 17.31 + 0.13);
+	vec2 d = f - (vec2(h, h2) - 0.5) * 0.4;
+	float ph = fract(t * 1.25 + h * 7.0);
+	float r = ph * 0.42;
+	float dl = length(d);
+	float ring = sin((dl - r) * 38.0) * exp(-abs(dl - r) * 22.0) * (1.0 - ph);
+	return d / max(dl, 0.001) * ring;
+}
+
 void fragment() {
 	vec2 muv = ((wpos.xz + 512.0) * 0.5 + 0.5) / 513.0;
 	float depth = texture(depth_tex, muv).r * 8.0;
@@ -118,6 +133,11 @@ void fragment() {
 	vec3 c = texture(noise_tex, wpos.xz * 0.74 + TIME * vec2(0.03, -0.037)).rgb;
 	vec2 g = (a.rg - 0.5) * 0.7 + (b.gb - 0.5) * 0.55 + (c.rb - 0.5) * 0.45 * (1.0 - smoothstep(8.0, 60.0, dist));
 	g *= ripple * mix(1.0, 0.22, smoothstep(30.0, 260.0, dist));
+	if (atmo_weather.z > 0.01) {
+		float close_r = 1.0 - smoothstep(15.0, 45.0, dist);
+		g += (rain_rings(wpos.xz * 2.0, TIME) + rain_rings(wpos.xz * 2.0 + 0.5, TIME + 0.43)) * 0.55 * atmo_weather.z * close_r;
+		g += (b.rg - 0.5) * 0.5 * atmo_weather.z;     // and further off, a rain-roughened surface
+	}
 	vec3 nw = normalize(vec3(g.x * 0.26, 1.0, g.y * 0.26));
 	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
 
@@ -142,7 +162,7 @@ void fragment() {
 	vec3 surface = body * skylight * (1.0 - fres) + refl * fres;
 	EMISSION = atmo_emit(haze, surface * surface);
 	ALPHA = clamp(mix(smoothstep(0.0, 1.5, depth) * 0.84 + 0.1, 1.0, fres), 0.0, 1.0) * smoothstep(0.0, 0.05, depth);
-	ROUGHNESS = mix(0.05, 0.2, smoothstep(40.0, 300.0, dist));
+	ROUGHNESS = mix(0.05, 0.2, smoothstep(40.0, 300.0, dist)) + 0.12 * atmo_weather.z;
 	SPECULAR = 0.75 * (1.0 - haze.a);
 	spec_v = SPECULAR;
 	cloud_v = atmo_cloud_sun(wpos);     // (per pixel: the water plane's vertices are 120 m apart)

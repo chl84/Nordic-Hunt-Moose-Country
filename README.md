@@ -34,6 +34,12 @@ buy rifles and equipment in **Gear**.
   the map shows the cone your scent drifts in. Up in a hunting tower your scent
   mostly carries over the animals. Grass, trees, leaves, breath and clouds all go
   with the same wind.
+- **Weather**: every day brings its own - clear, overcast, rain, fog or the first
+  snow (or always the same one, chosen under Settings). Rain hides your footsteps
+  but washes out scent and blood trails, and sends the moose into the trees. Fog
+  hides you until it lifts in the late morning. Snow crunches underfoot and shows
+  you on the white, but every track stands out and **Q** finds them from twice as
+  far. Rain and snow come in showers through the day.
 - **The dog**: Fant, a grey elkhound bought in **Gear**, walks at heel until you
   let him loose with **G**. He ranges out into the wind and finds moose by scent or
   on fresh tracks. Most bulls stand and face a baying dog; then he circles the
@@ -107,6 +113,11 @@ Everything is generated - there are no imported models, textures or samples.
   heel, search into the wind, trail, bay, follow, guard, come back - with walk, trot
   and gallop gaits, a sit, a barking jaw and a wagging tail. Round lakes it finds its
   way on an A* grid (`AStarGrid2D`, 5 m cells) built once at load.
+- `scripts/world/weather.gd` - the day's weather. It greys the sky and veils the sun
+  (SkySystem reads it), sets the `atmo_weather` shader global that wets or whitens the
+  ground, rocks, roofs and trees and puts raindrop rings on the lakes, and draws the
+  falling rain or snow: one mesh of small quads that `precip.gdshader` scatters through
+  a box round the camera, drops falling downwind and wrapping round as the camera moves.
 - `scripts/world/wind.gd` - the day's wind: direction, strength, the slow veer, and
   `scent()`, how strongly scent carries from one point to another. It sets the
   `atmo_wind` shader global the grass, trees and gusts sway with.
@@ -166,13 +177,15 @@ Arguments after `--` are read by the game:
 ./play.sh -- --test=dogshow --allgear --out=/tmp/x  # the elkhound posed: standing, sitting, barking, trotting, galloping
 ./play.sh -- --test=dog --allgear --wind=250,4 --out=/tmp/x  # let the dog loose: find, bay, the kill, whistle in, a shot past it
 ./play.sh -- --test=scent --wind=250,4 --out=/tmp/x  # a moose smells a hidden hunter upwind, not downwind or across
+./play.sh -- --test=weather --out=/tmp/x  # the same views in clear, overcast, rain, fog and snow (--kinds=, --views=valley,cabin,forest,meadow,shore,fp,trail)
 ./play.sh -- --check                   # compile every script and shader, then quit
 ./play.sh -- --inputlog                # print every key press and what the game did with it (never saves)
 ```
 
 Tests: `world`, `gfx`, `trees`, `far`, `cabin`, `cabinwalk`, `menu`, `weapon`, `gear`, `moose`, `play`, `perf`,
-`dog`, `dogshow`, `scent`. Useful extras: `--allgear`, `--rich`, `--seed=N`, `--minutes=N`, `--time=0..1`, `--nocache`,
-`--wind=<from bearing>,<m/s>` (a fixed wind; test runs otherwise keep the old steady breeze), `--windseed=N`.
+`dog`, `dogshow`, `scent`, `weather`. Useful extras: `--allgear`, `--rich`, `--seed=N`, `--minutes=N`, `--time=0..1`, `--nocache`,
+`--wind=<from bearing>,<m/s>` (a fixed wind; test runs otherwise keep the old steady breeze), `--windseed=N`,
+`--weather=clear|overcast|rain|fog|snow` (test runs are otherwise clear; with `--test=price`, part `precip` prices the rain or snow).
 
 ## License
 

@@ -12,6 +12,7 @@ var tracks: Tracks
 var ballistics: Ballistics
 var ambience: Ambience
 var wind: Wind
+var weather: Weather
 var dog: Dog
 var hud: Hud
 var menus: Menus
@@ -45,6 +46,7 @@ func _ready() -> void:
 	await world.build(int(G.args.get("seed", "1905")))
 
 	wind = _add(Wind.new(), "Wind")
+	weather = _add(Weather.new(), "Weather")
 	fx = _add(Effects.new(), "Effects")
 	G.fx = fx
 	tracks = _add(Tracks.new(), "Tracks")
@@ -106,6 +108,7 @@ func to_menu() -> void:
 	player.visible = false
 	herd.active = false
 	dog.end_hunt()
+	weather.set_kind("clear")
 	hud.visible = false
 	ambience.music_on = true
 	ambience.in_hunt = false
@@ -124,6 +127,7 @@ func start_hunt() -> void:
 	herd.populate(int(G.args.get("herdseed", "0")))
 	herd.active = true
 	wind.new_day(int(G.args.get("windseed", "0")))
+	weather.new_day(int(G.args.get("weatherseed", "0")))
 	var minutes: int = int(G.args.get("minutes", str(Settings.get_v("hunt_minutes"))))
 	hunt = {
 		"score": 0, "kills": [], "shots": 0, "hits": 0, "longest": 0.0, "best": 0,
@@ -155,7 +159,7 @@ func start_hunt() -> void:
 	elif SaveGame.weapons.size() < 2 and SaveGame.gear.is_empty() and SaveGame.wallet >= 800:
 		hud.show_message("You have %s kr unspent - rifles, binoculars and the moose call are bought under Gear in the main menu." % G.fmt_int(SaveGame.wallet), 8.0)
 	else:
-		hud.show_message("Dawn over Moose Country. Good hunting.", 5.0)
+		hud.show_message("Dawn over Moose Country. %s Wind from %s." % [weather.intro(), wind.from_name()], 7.0)
 
 func pause() -> void:
 	if mode != Mode.HUNT or get_tree().paused:

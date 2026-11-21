@@ -72,7 +72,9 @@ func _process(dt: float) -> void:
 		var tod: float = G.sky.time if G.sky else 0.3
 		var lively := 1.0 - absf(tod - 0.3) * 0.9      # the dawn chorus fades through the day
 		_bird_t = _rng.randf_range(2.5, 7.0) / clampf(lively, 0.35, 1.0)
-		if hush <= 0.0:
+		# the birds keep quiet in the rain and the falling snow
+		var quiet: float = maxf(G.weather.rain, G.weather.snowfall * 0.8) if G.weather else 0.0
+		if hush <= 0.0 and _rng.randf() > quiet * 0.85:
 			_sing(p, tod)
 
 func _sing(p: Vector3, tod: float) -> void:

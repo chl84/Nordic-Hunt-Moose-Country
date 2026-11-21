@@ -187,9 +187,23 @@ void fragment() {
 	col = mix(col, vec3(0.09, 0.10, 0.07), smoothstep(-0.2, -2.5, h));
 	// first snow on the peaks
 	// (it lingers lower down the gullies and on the ledges, so the snowline breaks into tongues)
-	float snow = smoothstep(285.0, 345.0, h + (nA.b - 0.5) * 70.0 - slope * 90.0 + ((0.5 - gully) * 90.0 + ledge * 40.0 + (mid.g - 0.5) * 80.0 + (big.r - 0.5) * 60.0) * steep);
+	// (a snowy day brings the snowline down the mountainsides)
+	float snow = smoothstep(285.0, 345.0, h + atmo_weather.y * 190.0 + (nA.b - 0.5) * 70.0 - slope * 90.0 + ((0.5 - gully) * 90.0 + ledge * 40.0 + (mid.g - 0.5) * 80.0 + (big.r - 0.5) * 60.0) * steep);
 	col = mix(col, vec3(0.90, 0.92, 0.96), snow);
 	col *= mix(1.0, 0.62 + 0.76 * fine, 1.0 - snow * 0.7);
+	// the day's weather (atmo_weather): the first snow lying on all but the steepest
+	// ground, patchy where it is thin and thinner under the crowns; in the rain the
+	// ground darkens and takes a sheen
+	float fresh = 0.0;
+	if (atmo_weather.y > 0.0) {
+		float lie = atmo_weather.y * 0.92 + (nB.r - 0.5) * 0.7 + (nA.g - 0.5) * 0.5 + (nC.g - 0.5) * 0.35 * near + (nE.b - 0.5) * 0.3 * close;
+		fresh = smoothstep(0.45, 0.68, lie) * (1.0 - smoothstep(0.3, 0.5, slope)) * (1.0 - shore) * (1.0 - litter.r * 0.8) * (1.0 - forest * 0.25);
+		// (a little blue in its hollows, a sparkle of crystals close up)
+		vec3 snow_c = mix(vec3(0.66, 0.7, 0.78), vec3(0.8, 0.81, 0.84), smoothstep(0.3, 0.7, nB.g + (nD.r - 0.5) * 0.5));
+		col = mix(col, snow_c * (0.94 + 0.1 * fine), fresh);
+	}
+	float soaked = atmo_weather.x * (1.0 - max(snow, fresh));
+	col *= 1.0 - 0.3 * soaked;
 #ifdef FAR_RING
 	// trees shade the ground beyond shadow-map range
 	col *= 1.0 - forest * 0.22 * smoothstep(60.0, 160.0, dist);
@@ -199,12 +213,14 @@ void fragment() {
 	col *= 1.0 - litter.r * 0.12;
 	col *= 1.0 - max(forest * 0.1, litter.r * 0.38) * smoothstep(shadow_reach * 0.7, shadow_reach, dist);
 	// gusts run on across the open meadow beyond the grass blades, as a faint sheen
-	col *= 1.0 + gust_v * 0.1 * open_grass * (1.0 - rock) * (1.0 - wet) * (1.0 - snow) * (1.0 - shore)
+	col *= 1.0 + gust_v * 0.1 * open_grass * (1.0 - rock) * (1.0 - wet) * (1.0 - max(snow, fresh)) * (1.0 - shore)
 			* smoothstep(12.0, 35.0, dist) * (1.0 - smoothstep(150.0, 230.0, dist));
 #endif
 
-	nw.xz += (nE.rg - 0.5) * 0.5 * close * (1.0 - snow);
-	nw.xz += (nC.gb - 0.5) * 0.7 * near * (1.0 - snow);
+	nw.xz += (nE.rg - 0.5) * 0.5 * close * (1.0 - snow) * (1.0 - 0.8 * fresh);
+	nw.xz += (nC.gb - 0.5) * 0.7 * near * (1.0 - snow) * (1.0 - 0.6 * fresh);
+	// fresh snow lies in soft drifts and lumps over what is under it
+	nw.xz += ((nB.gb - 0.5) * 0.45 + (nD.gr - 0.5) * 0.25) * fresh;
 	nw.xz += (nD.rb - 0.5) * 0.25 * (1.0 - snow);
 	nw.xz += (nB.rg - 0.5) * 0.12;
 	// ribs and gullies turn a little across the fall line, so the low sun picks them out
@@ -216,8 +232,8 @@ void fragment() {
 	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(nw), 0.0)).xyz);
 	vec4 haze = atmo_fogging(wpos, CAMERA_POSITION_WORLD);
 	ALBEDO = col * atmo_keep(haze.a);
-	ROUGHNESS = mix(0.95, 0.55, max(shore * 0.7, wet * 0.4));
-	SPECULAR = 0.15 * (1.0 - haze.a);
+	ROUGHNESS = mix(mix(0.95, 0.55, max(shore * 0.7, wet * 0.4)), 0.45, soaked * 0.6);
+	SPECULAR = (0.15 + 0.12 * soaked) * (1.0 - haze.a);
 	spec_v = SPECULAR;
 	EMISSION = atmo_emit(haze, vec3(0.0));
 }

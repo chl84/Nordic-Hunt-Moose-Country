@@ -124,6 +124,9 @@ func _update_cloud_shadows(dt: float) -> void:
 		var parts := String(G.args["cloudoff"]).split(",")
 		_shadow_off = Vector2(float(parts[0]), float(parts[1]))
 	var strength := 0.78 * smoothstep(0.11, 0.3, sun_dir.y) * cloud_scale
+	# under a grey sky there are no single clouds to cast shadows
+	if G.weather:
+		strength *= 1.0 - clampf((float(G.weather.cloud) - 0.08) / 0.6, 0.0, 1.0)
 	if G.args.has("cloudshadow"):
 		strength *= float(G.args["cloudshadow"])
 	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
@@ -185,6 +188,33 @@ func sample(t: float) -> Array:
 
 func _apply() -> void:
 	var s := sample(time)
+	# the day's weather (Weather): grey cloud dims the sun and greys the sky, fog and
+	# falling rain or snow thicken the haze. A clear day leaves the palette as it is.
+	var w = G.weather
+	var oc := 0.0
+	var fogw := 0.0
+	var precip := 0.0
+	var snowy := 0.0
+	if w:
+		oc = clampf((float(w.cloud) - 0.08) / 0.92, 0.0, 1.0)
+		fogw = w.fog
+		precip = maxf(w.rain, w.snowfall)
+		snowy = w.snow
+	if oc > 0.0 or fogw > 0.0:
+		var day := clampf(float(s[2]) / 1.38, 0.5, 1.0)
+		s[1] = (s[1] as Color).lerp(Color(0.84, 0.86, 0.9), oc * 0.65)
+		s[2] = float(s[2]) * (1.0 - 0.68 * oc)
+		s[3] = (s[3] as Color).lerp(Color(0.5, 0.53, 0.57) * day, maxf(oc * 0.85, fogw * 0.55))
+		s[4] = (s[4] as Color).lerp(Color(0.7, 0.72, 0.74) * day, maxf(oc * 0.8, fogw * 0.88))
+		s[5] = (s[5] as Color).lerp(Color(0.76, 0.78, 0.8) * day, maxf(oc * 0.7, fogw * 0.92))
+		s[6] = float(s[6]) * (1.0 + 16.0 * fogw + 2.5 * precip)
+		s[8] = float(s[8]) * (1.0 + 0.35 * oc)
+		s[9] = (s[9] as Color).lerp(Color(0.72, 0.74, 0.78) * day, oc)
+		s[10] = (s[10] as Color).lerp(Color(0.44, 0.46, 0.5) * day, oc)
+	sky_mat.set_shader_parameter("cloud_cover", 0.45 + 0.53 * oc)
+	sky_mat.set_shader_parameter("veil", clampf(maxf(oc, fogw) * 1.3 - 0.2, 0.0, 1.0))
+	sun.shadow_opacity = 0.86 * (1.0 - 0.75 * oc)
+	env.adjustment_saturation = 1.12 - 0.12 * oc
 	# low Nordic sun: east at dawn, south at noon, west at dusk
 	var elev := deg_to_rad(6.5 + 25.0 * pow(sin(PI * time), 0.85))
 	var azim := lerpf(deg_to_rad(-78.0), deg_to_rad(78.0), time)
@@ -196,6 +226,8 @@ func _apply() -> void:
 	# shared atmosphere: the sky shader and every landscape shader read these
 	var density: float = float(s[6]) * fog_scale
 	haze_height = 105.0 + 235.0 * pow(sin(PI * time), 1.5)
+	# fog lies low in the valley: the peaks stand clear above it
+	haze_height = lerpf(haze_height, 38.0, fogw * 0.85)
 	var haze := _lin(s[5])
 	var rs := RenderingServer
 	rs.global_shader_parameter_set(&"atmo_sun_dir", sun_dir)

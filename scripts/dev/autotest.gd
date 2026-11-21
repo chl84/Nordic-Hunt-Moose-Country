@@ -330,6 +330,9 @@ func _test_price() -> void:
 		elif part == "moose":
 			if G.herd:
 				(G.herd as Node3D).visible = on
+		elif part == "precip":
+			# the falling rain or snow (run with --weather=rain or snow)
+			G.weather.precip_node().visible = on and maxf(G.weather.rain, G.weather.snowfall) > 0.01
 		elif part == "all":
 			for key in nodes:
 				for n in nodes[key]:
@@ -338,6 +341,8 @@ func _test_price() -> void:
 			fl.grass_mat.set_shader_parameter("fade_end", fade_e if on else 0.001)
 			G.sky.sun.shadow_enabled = on
 			G.sky.env.glow_enabled = on
+	if G.args.has("weather"):
+		G.weather.set_kind(String(G.args["weather"]))
 	var parts: PackedStringArray = String(G.args.get("parts", "spruce_near,near,far,single,shadow,sunshadow,cover,terrain,water,glow")).split(",", false)
 	var rounds := int(G.args.get("rounds", "2"))
 	var only: PackedStringArray = String(G.args.get("views", "")).split(",", false)
@@ -1731,3 +1736,73 @@ func _test_scent() -> void:
 		var smell: float = G.wind.scent(pl.global_position + Vector3(0, 1.2, 0), cow.head_pos())
 		print("[scent] %-12s %4.0f m  smell %.2f  peak awareness %.2f  %s" % [cs[0], (cs[1] as Vector3).length(), smell, peak, ("FLED after %.1f s" % fled_at) if fled_at >= 0.0 else "grazed on"])
 	Engine.time_scale = 1.0
+
+# ---------------------------------------------------------------- weather
+## The same views under each kind of weather (--kinds=clear,overcast,rain,fog,snow),
+## plus the hunter's own view in it; frame times printed for each.
+func _test_weather() -> void:
+	var d: TerrainData = G.terrain
+	main.menus.show_screen("")
+	var sp := d.spawn_pos
+	var fwd := Vector3(sin(d.cabin_yaw), 0, cos(d.cabin_yaw))
+	var forest := _open_spot(-90, -120, true)
+	var meadow := _open_spot(-60, 150, false)
+	var kinds: PackedStringArray = String(G.args.get("kinds", "clear,overcast,rain,fog,snow")).split(",", false)
+	var only: PackedStringArray = String(G.args.get("views", "")).split(",", false)
+	var views := [
+		["valley", 0.4, _ground(150, -80, 14.0), Vector3(0, 10, 60)],
+		["cabin", 0.4, sp + Vector3(0, 1.7, 0) + fwd * 4.0, d.cabin_pos + Vector3(0, 1.5, 0)],
+		["forest", 0.4, forest, forest + Vector3(20, -1.0, 14)],
+		["meadow", 0.4, meadow, meadow + Vector3(30, -2.0, -25)],
+		["shore", 0.4, sp + Vector3(0, 1.7, 0) - fwd * 3.0, sp + fwd * 80.0 + Vector3(30, 2.0, 0)],
+	]
+	for k in kinds:
+		for v in views:
+			if not only.is_empty() and not only.has(v[0]):
+				continue
+			# (fog is at its thickest in the early morning)
+			var t: float = 0.12 if k == "fog" else float(v[1])
+			G.sky.set_time(t, true)
+			G.weather.set_kind(k)
+			G.sky.set_time(t, true)
+			_look(v[2], v[3])
+			await _wait(40)
+			await _shot("w_%s_%s" % [k, v[0]])
+			await _perf("%s/%s" % [k, v[0]], 30)
+		print("[weather] %s: %s - cloud %.2f rain %.2f snowfall %.2f snow %.2f wet %.2f fog %.2f | hear x%.2f see x%.2f scent x%.2f steps x%.2f" % [k, G.weather.describe(), G.weather.cloud, G.weather.rain, G.weather.snowfall, G.weather.snow, G.weather.wet, G.weather.fog, G.weather.hear_mul(), G.weather.see_mul(), G.weather.scent_mul(), G.weather.step_mul()])
+	# the hunter's own view, and a moose's trail seen from above (--views=fp,trail)
+	if only.has("fp") or only.has("trail"):
+		main.start_hunt()
+		var pl: Player = G.player
+		main.hud.visible = true
+		await _secs(2.0)
+		var m: Moose = G.herd.moose[0]
+		for k in kinds:
+			G.weather.set_kind(k)
+			main.hunt["time_left"] = main.hunt["duration"] * (0.88 if k == "fog" else 0.6)
+			if only.has("fp"):
+				pl.global_position = sp
+				pl.vel = Vector3.ZERO
+				await _wait(4)
+				_aim_player_at(sp + fwd * 60.0 + Vector3(0, 2.0, 0))
+				pl.cam.make_current()
+				await _wait(50)
+				await _shot("w_%s_fp" % k)
+			if only.has("trail"):
+				# hoof prints in the open: look down on a stretch of trail from 3 m
+				var best := Vector3.ZERO
+				var best_s := -INF
+				for t in G.tracks.prints:
+					if t == null:
+						continue
+					var tp: Vector3 = t[0]
+					var sc: float = -G.terrain.forest_at(tp.x, tp.z) * 3.0 - G.flora.avoid_vector(tp, 4.0).length() * 2.0 - G.terrain.slope(tp.x, tp.z) * 4.0
+					if sc > best_s:
+						best_s = sc
+						best = tp
+				best.y = G.terrain.height(best.x, best.z)
+				main.hud.visible = false
+				_look(best + Vector3(2.2, 2.6, 1.6), best + Vector3(0, 0.05, 0))
+				await _wait(30)
+				await _shot("w_%s_trail" % k)
+				main.hud.visible = true

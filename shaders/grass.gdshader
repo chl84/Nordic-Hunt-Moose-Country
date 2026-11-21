@@ -23,7 +23,7 @@ void vertex() {
 	// with distance the blades get shorter, and at the very edge the whole tuft draws in to a
 	// point - flat slivers left lying on the ground would show as specks
 	vec3 rel = wp - origin;
-	rel.y *= keep;
+	rel.y *= keep * (1.0 - 0.45 * atmo_weather.y);
 	rel.xz *= smoothstep(0.0, 0.35, keep);
 	float w = sin(TIME * 1.7 + wp.x * 0.7 + wp.z * 0.5) * 0.6 + sin(TIME * 3.9 + wp.x * 1.9 - wp.z * 1.3) * 0.4;
 	// a gust leans the whole tuft downwind and sets it shaking harder
@@ -39,6 +39,7 @@ void vertex() {
 	COLOR.rgb = mix(COLOR.rgb, ground_tone, sink);
 	// (bent over, the blades show their paler sides: the gust shows as a sheen running through)
 	COLOR.rgb *= 1.0 + gust * 0.16 * tip;
+	COLOR.rgb *= 1.0 - 0.22 * atmo_weather.x;
 	NORMAL = vec3(0.0, 1.0, 0.0);
 	cloud_v = atmo_cloud_sun(origin);
 }

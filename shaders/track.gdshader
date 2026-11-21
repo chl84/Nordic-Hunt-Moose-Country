@@ -12,6 +12,9 @@ uniform float sense_strength = 0.0;
 uniform float trail_id = -1.0;
 uniform float trail_strength = 0.0;
 uniform float daylight = 1.0;
+uniform vec3 snow_color : source_color = vec3(0.3, 0.33, 0.4);   // how a mark looks in fresh snow
+uniform float wash = 0.3;                                          // how much rain takes out of it
+global uniform vec4 atmo_weather;
 
 varying float hl;
 varying float fade;
@@ -28,6 +31,9 @@ void vertex() {
 
 void fragment() {
 	float a = texture(tex, UV).a;
-	ALBEDO = mix(base_color * daylight, glow_color * 1.6, hl);
-	ALPHA = a * clamp(fade * 0.85 + hl, 0.0, 1.0);
+	float snowy = atmo_weather.y;
+	vec3 base = mix(base_color, snow_color, snowy) * daylight;
+	ALBEDO = mix(base, glow_color * 1.6, hl);
+	float show = (1.0 + 0.9 * snowy) * (1.0 - wash * atmo_weather.x);
+	ALPHA = a * clamp(fade * 0.85 * show + hl, 0.0, 1.0);
 }

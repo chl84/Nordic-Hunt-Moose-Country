@@ -104,6 +104,8 @@ func scent(src: Vector3, rcv: Vector3, reach := 1.0) -> float:
 	var near := (1.0 - smoothstep(9.0 * reach, 24.0 * reach, dist)) * 0.7
 	var steady := clampf((speed - CALM) / 4.0, 0.0, 1.0)
 	var range_m := (70.0 + 140.0 * steady) * reach
+	if G.weather:
+		range_m *= G.weather.scent_mul()
 	if dist > range_m:
 		return near
 	var c := d.dot(dir) / dist                     # 1 = straight downwind of the source

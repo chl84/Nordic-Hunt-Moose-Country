@@ -25,6 +25,9 @@ func _ready() -> void:
 	blood.resize(MAX_BLOOD)
 	_mat_p = _material(_print_texture(), Color(0.045, 0.03, 0.02), Color(1.0, 0.62, 0.18))
 	_mat_b = _material(_splat_texture(), Color(0.33, 0.012, 0.012), Color(1.0, 0.16, 0.1))
+	# in fresh snow blood shows bright red, and the rain washes it out sooner than prints
+	_mat_b.set_shader_parameter("snow_color", Color(0.55, 0.02, 0.02))
+	_mat_b.set_shader_parameter("wash", 0.7)
 	_mm_p = _multimesh(MAX_PRINTS, Vector2(0.34, 0.3), _mat_p)
 	_mm_b = _multimesh(MAX_BLOOD, Vector2(0.4, 0.4), _mat_b)
 
