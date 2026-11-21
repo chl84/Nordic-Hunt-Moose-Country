@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#27456f"/>
+      <stop offset="0.55" stop-color="#d9865a"/>
+      <stop offset="1" stop-color="#f3b46a"/>
+    </linearGradient>
+    <clipPath id="r"><rect width="256" height="256" rx="52"/></clipPath>
+  </defs>
+  <g clip-path="url(#r)">
+    <rect width="256" height="256" fill="url(#sky)"/>
+    <circle cx="150" cy="118" r="34" fill="#ffe2a8"/>
+    <path d="M0 150 L38 96 L64 128 L98 78 L136 136 L170 104 L212 150 L256 112 L256 256 L0 256Z" fill="#6f6f8e"/>
+    <path d="M0 176 L256 162 L256 256 L0 256Z" fill="#1d3a34"/>
+    <path d="M40 176 l14 -46 l14 46z M30 190 l24 -40 l24 40z M196 170 l12 -40 l12 40z M187 184 l21 -36 l21 36z" fill="#10231f"/>
+    <!-- moose -->
+    <path fill="#0b1412" d="M92 236 L92 196 Q88 176 104 170 L150 168 Q158 150 172 150 L178 136 L186 150 Q200 152 204 164 L204 176 Q196 186 184 182 L176 196 L176 236 L166 236 L164 204 L122 206 L112 236Z"/>
+    <path fill="#0b1412" d="M176 140 Q150 138 142 114 L152 124 L154 108 L162 124 L166 106 L172 126 L178 112 L182 142Z"/>
+    <path fill="#0b1412" d="M184 140 Q204 130 214 112 L208 132 L222 122 L210 140 L226 138 L204 150Z"/>
+  </g>
+</svg>

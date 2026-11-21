@@ -1,0 +1,88 @@
+; Engine configuration file.
+; Nordic Hunt: Moose Country
+
+config_version=5
+
+[application]
+
+config/name="Nordic Hunt: Moose Country"
+config/description="First-person moose hunting in a procedural Scandinavian forest."
+config/version="1.0"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon.svg"
+boot_splash/bg_color=Color(0.043, 0.055, 0.063, 1)
+boot_splash/show_image=false
+
+[autoload]
+
+G="*res://scripts/core/g.gd"
+Settings="*res://scripts/core/settings.gd"
+SaveGame="*res://scripts/core/save_game.gd"
+Sfx="*res://scripts/core/sfx.gd"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/vsync/vsync_mode=1
+display_server/driver.linuxbsd="wayland"
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=false
+
+[physics]
+
+common/physics_ticks_per_second=60
+common/physics_interpolation=false
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=1
+textures/default_filters/anisotropic_filtering_level=3
+lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=2
+lights_and_shadows/positional_shadow/atlas_size=1024
+environment/defaults/default_clear_color=Color(0.043, 0.055, 0.063, 1)
+anti_aliasing/quality/msaa_3d=0
+occlusion_culling/use_occlusion_culling=false
+
+[shader_globals]
+
+atmo_sun_dir={
+"type": "vec3",
+"value": Vector3(0.3, 0.5, 0.8)
+}
+atmo_sun_col={
+"type": "vec3",
+"value": Vector3(1, 0.9, 0.8)
+}
+atmo_top={
+"type": "vec3",
+"value": Vector3(0.03, 0.15, 0.55)
+}
+atmo_horizon={
+"type": "vec3",
+"value": Vector3(0.4, 0.6, 0.85)
+}
+atmo_haze={
+"type": "vec4",
+"value": Vector4(0.45, 0.6, 0.8, 0.3)
+}
+atmo_fog={
+"type": "vec4",
+"value": Vector4(0.0006, 120, 0.26, 0)
+}
+atmo_cloud={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 1)
+}
+atmo_cloud_tex={
+"type": "sampler2D",
+"value": ""
+}

@@ -1,0 +1,20 @@
+# Godot's import cache and editor state (rebuilt on first launch)
+.godot/
+
+# exports
+/export/
+*.x86_64
+*.pck
+
+# editor / OS leftovers
+*~
+*.bak
+*.tmp
+.DS_Store
+
+# local work files, not part of the game
+/a.png
+/a.png.import
+/b.png
+/b.png.import
+/PROMPT*.md
